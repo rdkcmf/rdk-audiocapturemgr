@@ -1,0 +1,11 @@
+[Unit]
+Description=An application to extract and deliver currently playing audio to registered consumers
+After= iarmbusd.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/audiocapturemgr
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

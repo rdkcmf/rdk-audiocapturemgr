@@ -21,13 +21,13 @@ rmf_Error q_mgr::data_callback(void *context, void *buf, unsigned int size)
 }
 
 
-inline void q_mgr::lock()
+inline void q_mgr::lock(pthread_mutex_t &mutex)
 {
-	REPORT_IF_UNEQUAL(0, pthread_mutex_lock(&m_mutex));
+	REPORT_IF_UNEQUAL(0, pthread_mutex_lock(&mutex));
 }
-inline void q_mgr::unlock()
+inline void q_mgr::unlock(pthread_mutex_t &mutex)
 {
-	REPORT_IF_UNEQUAL(0, pthread_mutex_unlock(&m_mutex));
+	REPORT_IF_UNEQUAL(0, pthread_mutex_unlock(&mutex));
 }
 inline void q_mgr::notify_data_ready()
 {
@@ -68,7 +68,8 @@ q_mgr::q_mgr(audio_properties_t &in_properties) : m_total_size(0), m_num_clients
 	pthread_mutexattr_t mutex_attribute;
 	REPORT_IF_UNEQUAL(0, pthread_mutexattr_init(&mutex_attribute));
 	REPORT_IF_UNEQUAL(0, pthread_mutexattr_settype(&mutex_attribute, PTHREAD_MUTEX_ERRORCHECK));
-	REPORT_IF_UNEQUAL(0, pthread_mutex_init(&m_mutex, &mutex_attribute));
+	REPORT_IF_UNEQUAL(0, pthread_mutex_init(&m_q_mutex, &mutex_attribute));
+	REPORT_IF_UNEQUAL(0, pthread_mutex_init(&m_client_mutex, &mutex_attribute));
 	REPORT_IF_UNEQUAL(0, sem_init(&m_sem, 0, 0));
 	m_current_incoming_q = new std::vector <audio_buffer *>;
 	m_current_outgoing_q = new std::vector <audio_buffer *>; 
@@ -86,7 +87,8 @@ q_mgr::~q_mgr()
 	REPORT_IF_UNEQUAL(0, sem_post(&m_sem));
 	REPORT_IF_UNEQUAL(0, pthread_join(m_thread, NULL));
 	REPORT_IF_UNEQUAL(0, sem_destroy(&m_sem));
-	REPORT_IF_UNEQUAL(0, pthread_mutex_destroy(&m_mutex));
+	REPORT_IF_UNEQUAL(0, pthread_mutex_destroy(&m_q_mutex));
+	REPORT_IF_UNEQUAL(0, pthread_mutex_destroy(&m_client_mutex));
 	flush_queue(m_current_incoming_q);
 	flush_queue(m_current_outgoing_q);
 	delete m_current_incoming_q;
@@ -96,16 +98,21 @@ q_mgr::~q_mgr()
 int q_mgr::set_audio_properties(audio_properties_t &in_properties)
 {
 	DEBUG("Enter.\n");
-	lock();
+	lock(m_q_mutex);
 	memcpy(&m_audio_properties, &in_properties, sizeof(m_audio_properties));
 	m_bytes_per_second = m_audio_properties.bits_per_sample * m_audio_properties.sample_rate * m_audio_properties.num_channels / 8;
+	lock(m_client_mutex);
 	flush_system();
+	unlock(m_client_mutex);
+	unlock(m_q_mutex);
+
+	lock(m_client_mutex);
 	std::vector<audio_capture_client *>::iterator iter;
 	for(iter = m_clients.begin(); iter != m_clients.end(); iter++)
 	{
 		(*iter)->notify_event(AUDIO_SETTINGS_CHANGE_EVENT);
 	}
-	unlock();
+	unlock(m_client_mutex);
 	return 0;
 }
 
@@ -122,14 +129,14 @@ unsigned int q_mgr::get_data_rate()
 void q_mgr::add_data(unsigned char *buf, unsigned int size)
 {
 	DEBUG("Adding data.\n");
-	lock();
+	lock(m_q_mutex);
 	audio_buffer * temp = create_new_audio_buffer(buf, size, 0, m_num_clients);
 
 	m_current_incoming_q->push_back(temp);
 	m_total_size += size;
 	//TODO: guard against accumulating audio_buffers if there is no consumption.
 	notify_data_ready();
-	unlock();
+	unlock(m_q_mutex);
 }
 void q_mgr::data_processor_thread()
 {
@@ -149,18 +156,18 @@ void q_mgr::data_processor_thread()
 		}
 		DEBUG("No data in outgoing queue.\n");
 		/* No more data to be consumed. Gotta check the other queue */
-		lock();
+		lock(m_q_mutex);
 		if(!m_current_incoming_q->empty())
 		{	
 			DEBUG("Incoming queue has buffers. Swapping them.\n");
 			swap_queues();
-			unlock();
+			unlock(m_q_mutex);
 		}
 		else
 		{
 			/*Block until data is available.*/
 			m_notify_new_data = true;
-			unlock();
+			unlock(m_q_mutex);
 			DEBUG("Incoming queue is empty as well. Waiting until a buffer arrives.\n");
 			if(0 != sem_wait(&m_sem))
 			{
@@ -173,19 +180,35 @@ void q_mgr::data_processor_thread()
 				break;
 			}
 
-			lock();
+			lock(m_q_mutex);
 			DEBUG("New data available in incoming queue. Swapping them.\n");
 			swap_queues();
-			unlock();
+			unlock(m_q_mutex);
 		}
 
 	}
 	DEBUG("Exiting.\n");
 }
 
+void q_mgr::update_buffer_references()
+{
+	std::vector <audio_buffer *>::iterator buffer_iter;
+	audio_buffer_get_global_lock();
+	for(buffer_iter = m_current_outgoing_q->begin(); buffer_iter != m_current_outgoing_q->end(); buffer_iter++)
+	{
+		set_ref_audio_buffer(*buffer_iter, m_num_clients);	
+	}
+	audio_buffer_release_global_lock();
+}
+
 void q_mgr::process_data()
 {
 	DEBUG("Processing %d buffers of data.\n", m_current_outgoing_q->size());
+
+	lock(m_client_mutex);
+	
+	update_buffer_references();
+	
 	std::vector <audio_buffer *>::iterator buffer_iter;
 	for(buffer_iter = m_current_outgoing_q->begin(); buffer_iter != m_current_outgoing_q->end(); buffer_iter++)
 	{
@@ -195,28 +218,35 @@ void q_mgr::process_data()
 			(*client_iter)->data_callback(*buffer_iter);	
 		}
 	}
+	unlock(m_client_mutex);
 	m_current_outgoing_q->clear();
 }
 
 int q_mgr::register_client(audio_capture_client * client)
 {
 	DEBUG("Enter.\n");
-	lock();
-	flush_system();
+	lock(m_client_mutex);
 	m_clients.push_back(client);
 	m_num_clients = m_clients.size();
-	unlock();
+	if(1 == m_num_clients)
+	{
+		start();
+	}
+	unlock(m_client_mutex);
 	INFO("Total clients: %d.\n", m_num_clients);
 	return 0;
 }
 int q_mgr::unregister_client(audio_capture_client * client)
 {
 	DEBUG("Enter.\n");
-	lock();
-	flush_system();
+	lock(m_client_mutex);
 	m_clients.erase(std::remove(m_clients.begin(), m_clients.end(), client), m_clients.end());
 	m_num_clients = m_clients.size();
-	unlock();
+	if(0 == m_num_clients)
+	{
+		stop();
+	}
+	unlock(m_client_mutex);
 	INFO("Total clients: %d.\n", m_num_clients);
 	return 0;
 }
@@ -246,6 +276,11 @@ static const size_t	DEFAULT_THRESHOLD = 8 * 1024;
 
 int q_mgr::start()
 {
+	if(NULL != m_device_handle)
+	{
+		WARN("Looks like device is already open.\n");
+		return 0;
+	}
 	int ret = RMF_AudioCapture_Open(&m_device_handle);
 	INFO("open() result is 0x%x\n", ret);
 	
@@ -267,6 +302,11 @@ int q_mgr::start()
 
 int q_mgr::stop()
 {
+	if(NULL == m_device_handle)
+	{
+		WARN("Looks like device is already closed.\n");
+		return 0;
+	}
 	int ret = RMF_AudioCapture_Stop(m_device_handle);
 	INFO("stop() result is 0x%x\n", ret);
 	ret = RMF_AudioCapture_Close(m_device_handle);
@@ -304,4 +344,14 @@ int audio_capture_client::set_audio_properties(audio_properties_t &properties)
 void audio_capture_client::get_audio_properties(audio_properties_t &properties)
 {
 	m_manager->get_audio_properties(properties);
+}
+
+int audio_capture_client::start()
+{
+	return m_manager->register_client(this);
+}
+
+int audio_capture_client::stop()
+{
+	return m_manager->unregister_client(this);
 }

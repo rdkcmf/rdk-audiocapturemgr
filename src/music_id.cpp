@@ -1,14 +1,18 @@
 #include "music_id.h"
 #include <unistd.h>
 #include <stdint.h>
+
+
 const unsigned int DEFAULT_PRECAPTURE_DURATION_SEC = 6;
+
 static void * music_id_thread_launcher(void * data)
 {
     music_id_client * ptr = (music_id_client *) data;
     ptr->worker_thread();
     return NULL;
 }
-music_id_client::music_id_client(q_mgr * manager) : audio_capture_client(manager), m_worker_thread_alive(true), m_total_size(0), m_queue_upper_limit_bytes(0), m_request_counter(0)
+music_id_client::music_id_client(q_mgr * manager) : audio_capture_client(manager), m_worker_thread_alive(true), m_total_size(0), 
+	m_queue_upper_limit_bytes(0), m_request_counter(0), m_enable_wav_header_output(false)
 {
 	DEBUG("Creating instance.\n");
 	pthread_mutexattr_t mutex_attribute;
@@ -130,7 +134,10 @@ int music_id_client::grab_last_n_seconds(const std::string &filename, unsigned i
 		std::ofstream file(filename.c_str(), std::ios::binary);
 		if(file.is_open())
 		{
-			write_default_file_header(file);
+			if(m_enable_wav_header_output)
+			{
+				write_default_file_header(file);
+			}
 			std::list <audio_buffer *>::iterator iter;
 			for(iter = m_queue.begin(); iter != m_queue.end(); iter++)
 			{
@@ -141,8 +148,11 @@ int music_id_client::grab_last_n_seconds(const std::string &filename, unsigned i
 					break;
 				}
 			}
-            unsigned int payload_size = static_cast<unsigned int>(file.tellp()) - 44;
-            update_file_header_size(file, payload_size);
+			if(m_enable_wav_header_output)
+			{
+				unsigned int payload_size = static_cast<unsigned int>(file.tellp()) - 44;
+				update_file_header_size(file, payload_size);
+			}
 			INFO("Precaptured sample written to %s.\n", filename.c_str());
 		}
 		else
@@ -159,7 +169,7 @@ int music_id_client::grab_last_n_seconds(const std::string &filename, unsigned i
 	return ret;
 }
 
-music_id_client::request_id_t music_id_client::grab_fresh_sample(const std::string &filename, unsigned int seconds)
+music_id_client::request_id_t music_id_client::grab_fresh_sample(const std::string &filename, unsigned int seconds, request_complete_callback_t cb , void * cb_data)
 {
 	request_id_t id = -1;
 	lock();
@@ -167,9 +177,11 @@ music_id_client::request_id_t music_id_client::grab_fresh_sample(const std::stri
 	req->id = m_request_counter++;
 	req->filename = filename;
 	req->length = seconds;
-    req->time_remaining = seconds;
+	req->time_remaining = seconds;
+	req->callback = cb;
+	req->callback_data = cb_data;
 	m_requests.push_back(req);
-    compute_queue_size();
+	compute_queue_size();
 	unlock();
 	return id;
 }
@@ -199,14 +211,20 @@ void music_id_client::worker_thread()
 		std::list<request_t *>::iterator iter = m_requests.begin();
 		while(iter != m_requests.end())
 		{
-			if(0 == ((*iter)->time_remaining)--)
+			request_t *request = *iter;
+			if(0 == request->time_remaining--)
 			{
-				INFO("Request %d is up.\n", (*iter)->id);
-				if(0 != grab_last_n_seconds((*iter)->filename, (*iter)->length))
+				INFO("Request %d is up.\n", request->id);
+				int ret = grab_last_n_seconds(request->filename, request->length);
+				if(0 != ret) 
 				{
 					ERROR("Failed to fulfil request %d.\n", (*iter)->id);
 				}
-				delete *iter;
+				if(request->callback)
+				{
+					(request->callback)(request->callback_data, request->filename, ret);
+				}
+				delete request;
 				iter = m_requests.erase(iter);
                 compute_queue_size();
 			}
@@ -323,5 +341,18 @@ int music_id_client::update_file_header_size(std::ofstream &file, unsigned int d
 	/* Update data subchunk size.*/
     file.seekp(40);
 	write_32byte_little_endian(data_size, file);
+	return 0;
+}
+
+static const unsigned int MAX_PRECAPTURE_LENGTH_SEC = 120;
+unsigned int music_id_client::get_max_supported_duration()
+{
+	//TODO: If necessary, make this a run-time decision based on the current data rate of audio.
+	return MAX_PRECAPTURE_LENGTH_SEC;
+}
+
+unsigned int music_id_client::enable_wav_header(bool isEnabled)
+{
+	m_enable_wav_header_output = isEnabled;
 	return 0;
 }

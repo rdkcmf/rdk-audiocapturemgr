@@ -7,11 +7,13 @@
 void print_menu(void)
 {
 	std::cout<<"\n--- audio capture test application menu ---\n";
-	std::cout<<"1. start\n";
-	std::cout<<"2. stop\n";
+	std::cout<<"1. q_mgr start (non-essential step)\n";
+	std::cout<<"2. q_mgr stop (non-essential step)\n";
 	std::cout<<"3. dump precaptured sample\n";
 	std::cout<<"4. set precapture length\n";
 	std::cout<<"5. capture next N seconds\n";
+	std::cout<<"6. Start client\n";
+	std::cout<<"7. Stop client\n";
 	std::cout<<"9. Quit.\n";
 }
 
@@ -32,7 +34,7 @@ void launcher()
     audio_properties_t settings = {16, 48000, 2, 0};
     q_mgr manager(settings);
 	music_id_client client(&manager);
-    manager.register_client(&client);
+	client.enable_wav_header(true);
 	
 	while(keep_running)
 	{
@@ -93,6 +95,16 @@ void launcher()
 					}
 					break;
 				}
+			case 6:
+				{
+					client.start();
+					break;
+				}
+			case 7:
+				{
+					client.stop();
+					break;
+				}
 			case 9:
 				{
 					keep_running = false;
@@ -103,7 +115,6 @@ void launcher()
 				std::cout<<"Unknown input!\n";
 		}
 	}
-	manager.unregister_client(&client);
 }
 
 

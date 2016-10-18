@@ -19,7 +19,8 @@ class q_mgr
 	unsigned int m_bytes_per_second;
 	unsigned int m_total_size;
 	unsigned int m_num_clients;
-	pthread_mutex_t m_mutex;
+	pthread_mutex_t m_q_mutex;
+	pthread_mutex_t m_client_mutex;
 	sem_t m_sem;
 	pthread_t m_thread;
 	bool m_processing_thread_alive;
@@ -27,13 +28,14 @@ class q_mgr
 	RMF_AudioCaptureHandle m_device_handle;
 
 	private:
-	inline void lock();
-	inline void unlock();
+	inline void lock(pthread_mutex_t &mutex);
+	inline void unlock(pthread_mutex_t &mutex);
 	inline void notify_data_ready();
 	void swap_queues(); //caller must lock before invoking this.
 	void flush_queue(std::vector <audio_buffer *> *q);
 	void flush_system();
 	void process_data();
+	void update_buffer_references();
 
 	public:
 	q_mgr(audio_properties_t &in_properties);
@@ -70,5 +72,7 @@ class audio_capture_client
 	virtual int set_audio_properties(audio_properties_t &properties);
 	void get_audio_properties(audio_properties_t &properties);
 	virtual void notify_event(audio_capture_events_t event){}
+	int start();
+	int stop();
 };
 #endif // _AUDIO_CAPTURE_MANAGER_h_

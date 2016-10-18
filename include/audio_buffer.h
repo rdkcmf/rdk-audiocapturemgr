@@ -12,4 +12,7 @@ class audio_buffer
 
 audio_buffer * create_new_audio_buffer(const unsigned char *in_ptr, unsigned int in_size, unsigned int clip_length, unsigned int refcount);
 void unref_audio_buffer(audio_buffer *ptr);
+inline void set_ref_audio_buffer(audio_buffer *ptr, unsigned int refcount){ ptr->m_refcount = refcount; } //needs global lock
+void audio_buffer_get_global_lock();
+void audio_buffer_release_global_lock();
 void free_audio_buffer(audio_buffer *ptr);

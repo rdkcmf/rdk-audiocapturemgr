@@ -46,3 +46,12 @@ void free_audio_buffer(audio_buffer *ptr)
 {
 	delete ptr;
 }
+void audio_buffer_get_global_lock()
+{
+	REPORT_IF_UNEQUAL(0, pthread_mutex_lock(&g_audio_buffer_mutex));
+}
+void audio_buffer_release_global_lock()
+{
+	REPORT_IF_UNEQUAL(0, pthread_mutex_unlock(&g_audio_buffer_mutex));
+}
+
