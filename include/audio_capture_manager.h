@@ -3,76 +3,100 @@
 #include <pthread.h>
 #include <vector>
 #include <semaphore.h>
+#include <string>
 #include "audio_buffer.h"
 #include "basic_types.h"
 #include "rmf_error.h"
-#include "rmfAudioCapture.h"
+#include "media-utils/audioCapture/rmfAudioCapture.h"
+
+namespace audiocapturemgr
+{
+	typedef struct
+	{
+		racFormat format;
+		racFreq sampling_frequency;
+		size_t fifo_size;
+		size_t threshold;
+		unsigned int delay_compensation_ms;
+	}audio_properties_t;
+	void get_individual_audio_parameters(audio_properties_t &audio_props, unsigned int &sampling_rate, unsigned int &bits_per_sample, unsigned int &num_channels);
+	unsigned int calculate_data_rate(audio_properties_t &audio_props);
+	std::string get_suffix(unsigned int ticker);
+}
 
 class audio_capture_client;
 class q_mgr
 {
 	private:
-	std::vector <audio_buffer *> *m_current_incoming_q;
-	std::vector <audio_buffer *> *m_current_outgoing_q;
-	std::vector <audio_capture_client *> m_clients;
-	audio_properties_t m_audio_properties;
-	unsigned int m_bytes_per_second;
-	unsigned int m_total_size;
-	unsigned int m_num_clients;
-	pthread_mutex_t m_q_mutex;
-	pthread_mutex_t m_client_mutex;
-	sem_t m_sem;
-	pthread_t m_thread;
-	bool m_processing_thread_alive;
-	bool m_notify_new_data;
-	RMF_AudioCaptureHandle m_device_handle;
+		std::vector <audio_buffer *> *m_current_incoming_q;
+		std::vector <audio_buffer *> *m_current_outgoing_q;
+		std::vector <audio_capture_client *> m_clients;
+		audiocapturemgr::audio_properties_t m_audio_properties;
+		unsigned int m_bytes_per_second;
+		unsigned int m_total_size;
+		unsigned int m_num_clients;
+		pthread_mutex_t m_q_mutex;
+		pthread_mutex_t m_client_mutex;
+		sem_t m_sem;
+		pthread_t m_thread;
+		bool m_processing_thread_alive;
+		bool m_notify_new_data;
+		bool m_started;
+		RMF_AudioCaptureHandle m_device_handle;
+		unsigned int m_max_queue_size;
 
 	private:
-	inline void lock(pthread_mutex_t &mutex);
-	inline void unlock(pthread_mutex_t &mutex);
-	inline void notify_data_ready();
-	void swap_queues(); //caller must lock before invoking this.
-	void flush_queue(std::vector <audio_buffer *> *q);
-	void flush_system();
-	void process_data();
-	void update_buffer_references();
+		inline void lock(pthread_mutex_t &mutex);
+		inline void unlock(pthread_mutex_t &mutex);
+		inline void notify_data_ready();
+		void swap_queues(); //caller must lock before invoking this.
+		void flush_queue(std::vector <audio_buffer *> *q);
+		void flush_system();
+		void process_data();
+		void update_buffer_references();
 
 	public:
-	q_mgr(audio_properties_t &in_properties);
-	~q_mgr();
+		q_mgr();
+		~q_mgr();
 
-	int set_audio_properties(audio_properties_t &in_properties);
-	void get_audio_properties(audio_properties_t &out_properties);
-	unsigned int get_data_rate();
-	void add_data(unsigned char *buf, unsigned int size);
-	void data_processor_thread();
-	int register_client(audio_capture_client *client);
-	int unregister_client(audio_capture_client *client);
-	int start();
-	int stop();
+		int set_audio_properties(audiocapturemgr::audio_properties_t &in_properties);
+		void get_audio_properties(audiocapturemgr::audio_properties_t &out_properties);
+		void get_default_audio_properties(audiocapturemgr::audio_properties_t &out_properties);
+		unsigned int get_data_rate();
+		void add_data(unsigned char *buf, unsigned int size);
+		void data_processor_thread();
+		int register_client(audio_capture_client *client);
+		int unregister_client(audio_capture_client *client);
+		int start();
+		int stop();
 
-	static rmf_Error data_callback(void *context, void *buf, unsigned int size);
+		static rmf_Error data_callback(void *context, void *buf, unsigned int size);
 };
 
 class audio_capture_client
 {
-    private:
-    unsigned int m_priority;
 
-    protected:
-	q_mgr * m_manager;
-    void release_buffer(audio_buffer *ptr);
+	private:
+		unsigned int m_priority;
+		pthread_mutex_t m_mutex;
 
-    public:
-    virtual int data_callback(audio_buffer *buf);
-    audio_capture_client(q_mgr * manager);
-    ~audio_capture_client();
-	unsigned int get_priority() {return m_priority;}
-	void set_manager(q_mgr *manager);
-	virtual int set_audio_properties(audio_properties_t &properties);
-	void get_audio_properties(audio_properties_t &properties);
-	virtual void notify_event(audio_capture_events_t event){}
-	int start();
-	int stop();
+	protected:
+		q_mgr * m_manager;
+		void release_buffer(audio_buffer *ptr);
+		void lock();
+		void unlock();
+
+	public:
+		virtual int data_callback(audio_buffer *buf);
+		audio_capture_client(q_mgr * manager);
+		virtual ~audio_capture_client();
+		unsigned int get_priority() {return m_priority;}
+		void set_manager(q_mgr *manager);
+		virtual int set_audio_properties(audiocapturemgr::audio_properties_t &properties);
+		void get_audio_properties(audiocapturemgr::audio_properties_t &properties);
+		void get_default_audio_properties(audiocapturemgr::audio_properties_t &properties);
+		virtual void notify_event(audio_capture_events_t event){}
+		virtual int start();
+		virtual int stop();
 };
 #endif // _AUDIO_CAPTURE_MANAGER_h_

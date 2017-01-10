@@ -1,18 +1,14 @@
 #include <unistd.h>
 #include "audio_capture_manager.h"
 #include "music_id.h"
-#include "acm_iarm_interface.h"
+#include "acm_session_mgr.h"
 void launcher()
 {
-	audio_properties_t settings = {16, 48000, 2, 0};
-	q_mgr manager(settings);
-	music_id_client client(&manager);
-	acm_iarm_interface * iface = acm_iarm_interface::get_instance();
-	iface->activate(&client);
-
+	acm_session_mgr *mgr = acm_session_mgr::get_instance();
+	mgr->activate();
 	/* Hold here until application is terminated.*/
 	pause();
-	iface->deactivate();
+	mgr->deactivate();
 }
 
 

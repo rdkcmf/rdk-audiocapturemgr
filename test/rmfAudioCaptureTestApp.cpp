@@ -31,8 +31,7 @@ static std::string get_suffix()
 void launcher()
 {
 	bool keep_running = true;
-    audio_properties_t settings = {16, 48000, 2, 0};
-    q_mgr manager(settings);
+    q_mgr manager;
 	music_id_client client(&manager);
 	client.enable_wav_header(true);
 	

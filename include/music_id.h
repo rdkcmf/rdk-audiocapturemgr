@@ -23,7 +23,6 @@ class music_id_client : public audio_capture_client
 	private:
 	std::list <audio_buffer *> m_queue;
 	std::list <request_t*> m_requests;
-	pthread_mutex_t m_mutex;
 	pthread_t m_thread;
 	bool m_worker_thread_alive;
 	unsigned int m_total_size;
@@ -33,8 +32,6 @@ class music_id_client : public audio_capture_client
 	unsigned int m_request_counter;
 	bool m_enable_wav_header_output;
 
-	inline void lock();
-	inline void unlock();
 	void trim_queue();
 	int write_default_file_header(std::ofstream &file);
 	int update_file_header_size(std::ofstream &file, unsigned int data_size);
@@ -48,7 +45,7 @@ class music_id_client : public audio_capture_client
 	virtual int data_callback(audio_buffer *buf);
 	int grab_precaptured_sample(const std::string &filename);
 	request_id_t grab_fresh_sample(const std::string &filename, unsigned int seconds, request_complete_callback_t cb = NULL, void * cb_data = NULL);
-	virtual int set_audio_properties(audio_properties_t &properties);
+	virtual int set_audio_properties(audiocapturemgr::audio_properties_t &properties);
 	int set_precapture_duration(unsigned int seconds);
 	void worker_thread();
 	unsigned int get_max_supported_duration();

@@ -2,7 +2,7 @@
 #include <unistd.h>
 #include <stdint.h>
 
-
+using namespace audiocapturemgr;
 const unsigned int DEFAULT_PRECAPTURE_DURATION_SEC = 6;
 
 static void * music_id_thread_launcher(void * data)
@@ -15,10 +15,6 @@ music_id_client::music_id_client(q_mgr * manager) : audio_capture_client(manager
 	m_queue_upper_limit_bytes(0), m_request_counter(0), m_enable_wav_header_output(false)
 {
 	DEBUG("Creating instance.\n");
-	pthread_mutexattr_t mutex_attribute;
-	REPORT_IF_UNEQUAL(0, pthread_mutexattr_init(&mutex_attribute));
-	REPORT_IF_UNEQUAL(0, pthread_mutexattr_settype(&mutex_attribute, PTHREAD_MUTEX_ERRORCHECK));
-	REPORT_IF_UNEQUAL(0, pthread_mutex_init(&m_mutex, &mutex_attribute));
 	set_precapture_duration(DEFAULT_PRECAPTURE_DURATION_SEC);
 	REPORT_IF_UNEQUAL(0, pthread_create(&m_thread, NULL, music_id_thread_launcher, (void *) this));
 }
@@ -45,17 +41,6 @@ music_id_client::~music_id_client()
 		release_buffer(*buf_iter);
 	}
 	m_queue.clear();
-
-    REPORT_IF_UNEQUAL(0, pthread_mutex_destroy(&m_mutex));
-}
-
-inline void music_id_client::lock()
-{
-    REPORT_IF_UNEQUAL(0, pthread_mutex_lock(&m_mutex));
-}
-inline void music_id_client::unlock()
-{
-    REPORT_IF_UNEQUAL(0, pthread_mutex_unlock(&m_mutex));
 }
 
 int music_id_client::data_callback(audio_buffer *buf)
@@ -318,11 +303,17 @@ int music_id_client::write_default_file_header(std::ofstream &file)
 
 	audio_properties_t properties;
 	get_audio_properties(properties);
-	write_16byte_little_endian((uint16_t)properties.num_channels, file);
-	write_32byte_little_endian(properties.sample_rate, file);
+	
+	unsigned int bits_per_sample = 0;
+	unsigned int sampling_rate= 0;
+	unsigned int num_channels = 0;
+	get_individual_audio_parameters(properties, sampling_rate, bits_per_sample, num_channels);
+	
+	write_16byte_little_endian((uint16_t)num_channels, file);
+	write_32byte_little_endian(sampling_rate, file);
 	write_32byte_little_endian(m_manager->get_data_rate(), file);
-	write_16byte_little_endian((uint16_t)(properties.num_channels * properties.bits_per_sample / 8), file); //Block align
-	write_16byte_little_endian((uint16_t)properties.bits_per_sample, file);
+	write_16byte_little_endian((uint16_t)(num_channels * bits_per_sample / 8), file); //Block align
+	write_16byte_little_endian((uint16_t)bits_per_sample, file);
 
 	/* Write data sub-chunk header*/
 	file.write("data", 4);

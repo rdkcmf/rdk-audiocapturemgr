@@ -21,13 +21,6 @@
 #define REPORT_IF_UNEQUAL(lhs, rhs) do { \
     if((lhs) != (rhs)) ERROR("Unexpected error!\n");}while(0);
 
-typedef struct
-{
-    unsigned int bits_per_sample;
-    unsigned int sample_rate;
-    unsigned int num_channels;
-	unsigned int format;
-}audio_properties_t;
 
 typedef enum
 {
