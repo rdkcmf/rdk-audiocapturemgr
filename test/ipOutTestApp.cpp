@@ -126,7 +126,7 @@ void launcher()
 {
 	bool keep_running = true;
 	session_id_t session = -1;
-	audio_properties_t props;
+	audio_properties_ifce_t props;
 	std::string socket_path;
 
 	while(keep_running)

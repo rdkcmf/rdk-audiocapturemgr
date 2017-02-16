@@ -354,7 +354,59 @@ int acm_session_mgr::get_default_audio_props_handler(void * arg)
 	{
 		audio_properties_t props;
 		ptr->client->get_default_audio_properties(props);
-		param->details.arg_audio_properties = props;
+
+        switch (props.format) {
+        case racFormat_e16BitStereo:
+            param->details.arg_audio_properties.format = acmFormate16BitStereo;
+            break;
+        case racFormat_e24BitStereo:
+            param->details.arg_audio_properties.format = acmFormate24BitStereo;
+            break;
+        case racFormat_e16BitMonoLeft:
+            param->details.arg_audio_properties.format = acmFormate16BitMonoLeft;
+            break;
+        case racFormat_e16BitMonoRight:
+            param->details.arg_audio_properties.format = acmFormate16BitMonoRight;
+            break;
+        case racFormat_e16BitMono:
+            param->details.arg_audio_properties.format = acmFormate16BitMono;
+            break;
+        case racFormat_e24Bit5_1:
+            param->details.arg_audio_properties.format = acmFormate24Bit5_1;
+            break;
+        case racFormat_eMax:
+            param->details.arg_audio_properties.format = acmFormateMax;
+            break;
+        default:
+            param->details.arg_audio_properties.format = acmFormate16BitStereo;
+            break;
+        }
+
+        switch (props.sampling_frequency) {
+        case racFreq_e16000:
+            param->details.arg_audio_properties.sampling_frequency = acmFreqe16000;
+            break;
+        case racFreq_e32000:
+            param->details.arg_audio_properties.sampling_frequency = acmFreqe32000;
+            break;
+        case racFreq_e44100:
+            param->details.arg_audio_properties.sampling_frequency = acmFreqe44100;
+            break;
+        case racFreq_e48000:
+            param->details.arg_audio_properties.sampling_frequency = acmFreqe48000;
+            break;
+        case racFreq_eMax:
+            param->details.arg_audio_properties.sampling_frequency = acmFreqeMax;
+            break;
+        default:
+            param->details.arg_audio_properties.sampling_frequency = acmFreqe48000;
+            break;
+        }
+
+		param->details.arg_audio_properties.fifo_size             = props.fifo_size;
+		param->details.arg_audio_properties.threshold             = props.threshold;
+		param->details.arg_audio_properties.delay_compensation_ms = props.delay_compensation_ms;
+
 		param->result = 0;
 	}
 	else
@@ -375,7 +427,59 @@ int acm_session_mgr::get_audio_props_handler(void * arg)
 	{
 		audio_properties_t props;
 		ptr->client->get_audio_properties(props);
-		param->details.arg_audio_properties = props;
+
+        switch (props.format) {
+        case racFormat_e16BitStereo:
+            param->details.arg_audio_properties.format = acmFormate16BitStereo;
+            break;
+        case racFormat_e24BitStereo:
+            param->details.arg_audio_properties.format = acmFormate24BitStereo;
+            break;
+        case racFormat_e16BitMonoLeft:
+            param->details.arg_audio_properties.format = acmFormate16BitMonoLeft;
+            break;
+        case racFormat_e16BitMonoRight:
+            param->details.arg_audio_properties.format = acmFormate16BitMonoRight;
+            break;
+        case racFormat_e16BitMono:
+            param->details.arg_audio_properties.format = acmFormate16BitMono;
+            break;
+        case racFormat_e24Bit5_1:
+            param->details.arg_audio_properties.format = acmFormate24Bit5_1;
+            break;
+        case racFormat_eMax:
+            param->details.arg_audio_properties.format = acmFormateMax;
+            break;
+        default:
+            param->details.arg_audio_properties.format = acmFormate16BitStereo;
+            break;
+        }
+
+        switch (props.sampling_frequency) {
+        case racFreq_e16000:
+            param->details.arg_audio_properties.sampling_frequency = acmFreqe16000;
+            break;
+        case racFreq_e32000:
+            param->details.arg_audio_properties.sampling_frequency = acmFreqe32000;
+            break;
+        case racFreq_e44100:
+            param->details.arg_audio_properties.sampling_frequency = acmFreqe44100;
+            break;
+        case racFreq_e48000:
+            param->details.arg_audio_properties.sampling_frequency = acmFreqe48000;
+            break;
+        case racFreq_eMax:
+            param->details.arg_audio_properties.sampling_frequency = acmFreqeMax;
+            break;
+        default:
+            param->details.arg_audio_properties.sampling_frequency = acmFreqe48000;
+            break;
+        }
+
+		param->details.arg_audio_properties.fifo_size              = props.fifo_size;
+		param->details.arg_audio_properties.threshold              = props.threshold;
+		param->details.arg_audio_properties.delay_compensation_ms  = props.delay_compensation_ms;
+
 		param->result = 0;
 	}
 	else
@@ -428,7 +532,63 @@ int acm_session_mgr::set_audio_props_handler(void * arg)
 	acm_session_t * ptr = get_session(param->session_id);
 	if(ptr)
 	{
-		param->result = ptr->client->set_audio_properties(param->details.arg_audio_properties);
+        audio_properties_t props;
+
+
+        switch (param->details.arg_audio_properties.format) {
+        case acmFormate16BitStereo:
+            props.format = racFormat_e16BitStereo;
+            break;
+        case acmFormate24BitStereo:
+            props.format = racFormat_e24BitStereo;
+            break;
+        case acmFormate16BitMonoLeft:
+            props.format = racFormat_e16BitMonoLeft;
+            break;
+        case acmFormate16BitMonoRight:
+            props.format = racFormat_e16BitMonoRight;
+            break;
+        case acmFormate16BitMono:
+            props.format = racFormat_e16BitMono;
+            break;
+        case acmFormate24Bit5_1:
+            props.format = racFormat_e24Bit5_1;
+            break;
+        case acmFormateMax:
+            props.format = racFormat_eMax;
+            break;
+        default:
+            props.format = racFormat_e16BitStereo;
+            break;
+        }
+
+        switch (param->details.arg_audio_properties.sampling_frequency) {
+        case acmFreqe16000:
+            props.sampling_frequency = racFreq_e16000;
+            break;
+        case acmFreqe32000:
+            props.sampling_frequency = racFreq_e32000;
+            break;
+        case acmFreqe44100:
+            props.sampling_frequency = racFreq_e44100;
+            break;
+        case acmFreqe48000:
+            props.sampling_frequency = racFreq_e48000;
+            break;
+        case acmFreqeMax:
+            props.sampling_frequency = racFreq_eMax;
+            break;
+        default:
+            props.sampling_frequency = racFreq_e48000;
+            break;
+        }
+
+
+        props.fifo_size               = param->details.arg_audio_properties.fifo_size;
+        props.threshold               = param->details.arg_audio_properties.threshold;
+        props.delay_compensation_ms   = param->details.arg_audio_properties.delay_compensation_ms;
+
+		param->result = ptr->client->set_audio_properties(props);
 	}
 	else
 	{

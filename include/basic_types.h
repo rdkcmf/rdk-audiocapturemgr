@@ -1,3 +1,6 @@
+#ifndef __BASIC_TYPES_H__
+#define __BASIC_TYPES_H__
+
 #include <stdio.h>
 //#define ENABLE_DEBUG 1
 #define LOG(level, text, ...) do {\
@@ -26,3 +29,5 @@ typedef enum
 {
 	AUDIO_SETTINGS_CHANGE_EVENT = 0
 }audio_capture_events_t;
+
+#endif // __BASIC_TYPES_H__

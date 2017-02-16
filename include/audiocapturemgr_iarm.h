@@ -1,7 +1,6 @@
 #ifndef _AUDIOCAPTUREMGR_IARM_H_
 #define _AUDIOCAPTUREMGR_IARM_H_
-
-#include "audio_capture_manager.h"
+#include "basic_types.h"
 
 #define IARMBUS_AUDIOCAPTUREMGR_NAME "audiocapturemgr"
 /*Original API list*/
@@ -23,8 +22,12 @@
 
 #define AUDIOCAPTUREMGR_FILENAME_PREFIX "audio_sample"
 #define AUDIOCAPTUREMGR_FILE_PATH "/opt/"
+
+#ifdef __cplusplus
 namespace audiocapturemgr
 {
+#endif
+
 	typedef enum
 	{
 		BUFFERED_FILE_OUTPUT = 0,
@@ -52,11 +55,46 @@ namespace audiocapturemgr
 		ACM_RESULT_PRECAPTURE_NOT_SUPPORTED = 255
 	}iarmbus_audiocapturemgr_result_t;
 
+
+    typedef enum {
+        acmFormate16BitStereo,    /* Stereo, 16 bits per sample interleaved into a 32-bit word. */
+        acmFormate24BitStereo,    /* Stereo, 24 bits per sample.  The data is aligned to 32-bits,
+                                                 left-justified.  Left and right channels will interleave
+                                                 one sample per 32-bit word.  */
+        acmFormate16BitMonoLeft,  /* Mono, 16 bits per sample interleaved into a 32-bit word. Left channel samples only. */
+        acmFormate16BitMonoRight, /* Mono, 16 bits per sample interleaved into a 32-bit word. Right channel samples only. */
+        acmFormate16BitMono,      /* Mono, 16 bits per sample interleaved into a 32-bit word. Left and Right channels mixed. */
+        acmFormate24Bit5_1,       /* 5.1 Multichannel, 24 bits per sample.  The data is aligned to 32-bits,
+                                                 left-justified.  Channels will interleave
+                                                 one sample per 32-bit word, ordered L,R,Ls,Rs,C,LFE.  */
+        acmFormateMax
+    } iarmbus_acm_format;
+
+
+    typedef enum {
+        acmFreqe16000,         /* 16KHz    */
+        acmFreqe32000,         /* 32KHz    */
+        acmFreqe44100,         /* 44.1KHz  */
+        acmFreqe48000,         /* 48KHz    */
+        acmFreqeMax
+    } iarmbus_acm_freq;
+
+
 	typedef struct
 	{
 		unsigned int result;
 		float max_duration;
 	}iarmbus_enable_payload_t;
+
+    typedef struct
+    {
+        iarmbus_acm_format  format;
+        iarmbus_acm_freq    sampling_frequency;
+        size_t              fifo_size;
+        size_t              threshold;
+        unsigned int        delay_compensation_ms;
+    }audio_properties_ifce_t;
+
 
 
 	typedef struct
@@ -94,10 +132,15 @@ namespace audiocapturemgr
 		union
 		{
 			iarmbus_open_args arg_open;
-			audio_properties_t arg_audio_properties;
+			audio_properties_ifce_t arg_audio_properties;
 			iarmbus_request_payload_t arg_sample_request;
 			iarmbus_delivery_props_t arg_output_props;
 		}details;
 	}iarmbus_acm_arg_t;
+
+
+#ifdef __cplusplus
 }
+#endif
+
 #endif //_AUDIOCAPTUREMGR_IARM_H_
