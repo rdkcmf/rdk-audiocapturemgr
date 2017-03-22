@@ -221,6 +221,7 @@ int q_mgr::set_audio_properties(audio_properties_t &in_properties)
 	lock(m_q_mutex);
 	if(0 == memcmp(&m_audio_properties, &in_properties, sizeof(m_audio_properties)))
 	{
+		unlock(m_q_mutex);
 		return 0; //No change to properties
 	}
 
@@ -228,6 +229,7 @@ int q_mgr::set_audio_properties(audio_properties_t &in_properties)
 	if((racFormat_eMax <= in_properties.format) || (racFreq_eMax <= in_properties.sampling_frequency))
 	{
 		ERROR("Bad parameters. Format: 0x%x, sampling freq: 0x%x\n", in_properties.format, in_properties.sampling_frequency);
+		unlock(m_q_mutex);
 		return -1;
 	}
 
