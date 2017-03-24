@@ -24,7 +24,7 @@ AC_INIT([audiocapturemgr], [0.10], [chaithen_sojan@cable.comcast.com])
 AC_CONFIG_SRCDIR([src/audio_capture_manager.cpp])
 AC_CONFIG_HEADERS([config.h])
 
-AM_INIT_AUTOMAKE
+AM_INIT_AUTOMAKE([foreign])
 LT_INIT
 LT_LANG([C++])
 # Checks for programs.
