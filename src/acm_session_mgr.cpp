@@ -21,6 +21,7 @@
 #include <string>
 #include <string.h>
 #include <sstream>
+#include <stdlib.h>
 #include "libIARM.h"
 #include "libIBus.h"
 
@@ -186,6 +187,21 @@ int acm_session_mgr::deactivate()
 	return ret;
 }
 
+static bool get_rfc_output_conversion_config()
+{
+	int ret  = system(". /lib/rdk/isFeatureEnabled.sh AcmEnableOpConv");
+	if((true == WEXITSTATUS(ret)) && (true == WIFEXITED(ret)))
+	{
+		INFO("RFC: enable song-id output conversion\n");
+		return true;
+	}
+	else
+	{
+		INFO("RFC: disable song-id output conversion.\n");
+		return false;
+	}
+}
+
 int acm_session_mgr::open_handler(void * arg)
 {
 	iarmbus_acm_arg_t *param = static_cast <iarmbus_acm_arg_t *> (arg);
@@ -203,6 +219,7 @@ int acm_session_mgr::open_handler(void * arg)
 	{
 		case BUFFERED_FILE_OUTPUT:
 			new_session->client = new music_id_client(new_session->source);
+			static_cast <music_id_client *> (new_session->client)->enable_output_conversion(get_rfc_output_conversion_config());
 			param->result = 0;
 			break;
 
@@ -477,6 +494,9 @@ int acm_session_mgr::get_audio_props_handler(void * arg)
         case racFreq_e16000:
             param->details.arg_audio_properties.sampling_frequency = acmFreqe16000;
             break;
+        case racFreq_e24000:
+            param->details.arg_audio_properties.sampling_frequency = acmFreqe24000;
+            break;
         case racFreq_e32000:
             param->details.arg_audio_properties.sampling_frequency = acmFreqe32000;
             break;
@@ -583,6 +603,9 @@ int acm_session_mgr::set_audio_props_handler(void * arg)
         switch (param->details.arg_audio_properties.sampling_frequency) {
         case acmFreqe16000:
             props.sampling_frequency = racFreq_e16000;
+            break;
+        case acmFreqe24000:
+            props.sampling_frequency = racFreq_e24000;
             break;
         case acmFreqe32000:
             props.sampling_frequency = racFreq_e32000;

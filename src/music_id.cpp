@@ -17,6 +17,7 @@
  * limitations under the License.
 */
 #include "music_id.h"
+#include "audio_converter.h"
 #include <unistd.h>
 #include <stdint.h>
 
@@ -30,10 +31,11 @@ static void * music_id_thread_launcher(void * data)
     return NULL;
 }
 music_id_client::music_id_client(q_mgr * manager) : audio_capture_client(manager), m_worker_thread_alive(true), m_total_size(0), 
-	m_queue_upper_limit_bytes(0), m_request_counter(0), m_enable_wav_header_output(false)
+	m_queue_upper_limit_bytes(0), m_request_counter(0), m_enable_wav_header_output(false), m_convert_output(false)
 {
 	DEBUG("Creating instance.\n");
 	set_precapture_duration(DEFAULT_PRECAPTURE_DURATION_SEC);
+	m_output_properties = {racFormat_e16BitMono, racFreq_e48000, 0, 0, 0}; /*Only format and sampling rate matter for conversion*/
 	REPORT_IF_UNEQUAL(0, pthread_create(&m_thread, NULL, music_id_thread_launcher, (void *) this));
 }
 
@@ -96,6 +98,17 @@ int music_id_client::set_audio_properties(audio_properties_t &properties)
 	}
 	return ret;
 }
+
+void music_id_client::get_audio_properties(audio_properties_t &properties)
+{
+	audio_capture_client::get_audio_properties(properties);
+	if(m_convert_output)
+	{
+		properties.format = m_output_properties.format;
+		properties.sampling_frequency = m_output_properties.sampling_frequency;
+	}
+}
+
 void music_id_client::trim_queue() //Recommend using lock.
 {
 	int excess_bytes = m_total_size - m_queue_upper_limit_bytes;
@@ -141,14 +154,25 @@ int music_id_client::grab_last_n_seconds(const std::string &filename, unsigned i
 			{
 				write_default_file_header(file);
 			}
-			std::list <audio_buffer *>::iterator iter;
-			for(iter = m_queue.begin(); iter != m_queue.end(); iter++)
+			if(m_convert_output)
 			{
-				file.write((char *)(*iter)->m_start_ptr, (*iter)->m_size);
-				data_dump_size -= (*iter)->m_size;
-				if(0 > data_dump_size)
+				audio_properties_t in_properties;
+				audio_capture_client::get_audio_properties(in_properties);
+				audio_converter_file_op converter(in_properties, m_output_properties, file);
+				converter.convert(m_queue, data_dump_size);
+			}
+			else
+			{
+				INFO("No conversions active.\n");
+				std::list <audio_buffer *>::iterator iter;
+				for(iter = m_queue.begin(); iter != m_queue.end(); iter++)
 				{
-					break;
+					file.write((char *)(*iter)->m_start_ptr, (*iter)->m_size);
+					data_dump_size -= (*iter)->m_size;
+					if(0 > data_dump_size)
+					{
+						break;
+					}
 				}
 			}
 			if(m_enable_wav_header_output)
@@ -156,7 +180,7 @@ int music_id_client::grab_last_n_seconds(const std::string &filename, unsigned i
 				unsigned int payload_size = static_cast<unsigned int>(file.tellp()) - 44;
 				update_file_header_size(file, payload_size);
 			}
-			INFO("Precaptured sample written to %s.\n", filename.c_str());
+			INFO("Precaptured sample written to %s. File size: %lld bytes\n", filename.c_str(), file.tellp());
 		}
 		else
 		{
@@ -319,17 +343,28 @@ int music_id_client::write_default_file_header(std::ofstream &file)
 	write_32byte_little_endian(16, file);//SubChunk1Size
 	write_16byte_little_endian(1, file);//Audo format PCM
 
-	audio_properties_t properties;
-	get_audio_properties(properties);
 	
 	unsigned int bits_per_sample = 0;
 	unsigned int sampling_rate= 0;
 	unsigned int num_channels = 0;
-	get_individual_audio_parameters(properties, sampling_rate, bits_per_sample, num_channels);
-	
+	unsigned int data_rate = 0;
+	if(m_convert_output)
+	{
+		get_individual_audio_parameters(m_output_properties, sampling_rate, bits_per_sample, num_channels);
+		data_rate = sampling_rate * num_channels * bits_per_sample / 8;
+	}
+	else
+	{
+		audio_properties_t properties;
+		get_audio_properties(properties);
+		get_individual_audio_parameters(properties, sampling_rate, bits_per_sample, num_channels);
+		data_rate = m_manager->get_data_rate();
+	}
+	INFO("Header information: %d channel, %dHz, %d bits per sample audio.\n",
+		num_channels, sampling_rate, bits_per_sample);
 	write_16byte_little_endian((uint16_t)num_channels, file);
 	write_32byte_little_endian(sampling_rate, file);
-	write_32byte_little_endian(m_manager->get_data_rate(), file);
+	write_32byte_little_endian(data_rate, file);
 	write_16byte_little_endian((uint16_t)(num_channels * bits_per_sample / 8), file); //Block align
 	write_16byte_little_endian((uint16_t)bits_per_sample, file);
 
@@ -341,6 +376,7 @@ int music_id_client::write_default_file_header(std::ofstream &file)
 int music_id_client::update_file_header_size(std::ofstream &file, unsigned int data_size)
 {
 	INFO("Finalizing file header. Payload size: %dkB.\n", (data_size/1024));
+	std::streampos original_position = file.tellp();
 
 	/* Update file header chunk size.*/
 	uint32_t chunkSize = 36 + data_size;
@@ -350,6 +386,7 @@ int music_id_client::update_file_header_size(std::ofstream &file, unsigned int d
 	/* Update data subchunk size.*/
     file.seekp(40);
 	write_32byte_little_endian(data_size, file);
+	file.seekp(original_position); //return write pointer to original location 
 	return 0;
 }
 

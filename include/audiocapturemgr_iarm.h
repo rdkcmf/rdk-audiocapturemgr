@@ -89,13 +89,14 @@ namespace audiocapturemgr
     } iarmbus_acm_format;
 
 
-    typedef enum {
-        acmFreqe16000,         /* 16KHz    */
-        acmFreqe32000,         /* 32KHz    */
-        acmFreqe44100,         /* 44.1KHz  */
-        acmFreqe48000,         /* 48KHz    */
-        acmFreqeMax
-    } iarmbus_acm_freq;
+	typedef enum {
+		acmFreqe16000,         /* 16KHz    */
+		acmFreqe24000,         /* 24kHz    */
+		acmFreqe32000,         /* 32KHz    */
+		acmFreqe44100,         /* 44.1KHz  */
+		acmFreqe48000,         /* 48KHz    */
+		acmFreqeMax
+	} iarmbus_acm_freq;
 
 
 	typedef struct

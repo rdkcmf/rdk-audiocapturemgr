@@ -89,7 +89,7 @@ void q_mgr::flush_queue(std::vector <audio_buffer *> *q)
 
 namespace audiocapturemgr
 {
-	void get_individual_audio_parameters(audio_properties_t &audio_props, unsigned int &sampling_rate, unsigned int &bits_per_sample, unsigned int &num_channels)
+	void get_individual_audio_parameters(const audio_properties_t &audio_props, unsigned int &sampling_rate, unsigned int &bits_per_sample, unsigned int &num_channels)
 	{
 		bits_per_sample = 0;
 		sampling_rate= 0;
@@ -99,6 +99,9 @@ namespace audiocapturemgr
 		{
 			case racFreq_e16000:
 				sampling_rate = 16000;
+				break;
+			case racFreq_e24000:
+				sampling_rate = 24000;
 				break;
 			case racFreq_e32000:
 				sampling_rate = 32000;
@@ -139,7 +142,7 @@ namespace audiocapturemgr
 		}
 	}
 
-	unsigned int calculate_data_rate(audio_properties_t &audio_props)
+	unsigned int calculate_data_rate(const audio_properties_t &audio_props)
 	{
 		unsigned int bits_per_sample = 0;
 		unsigned int sampling_rate= 0;

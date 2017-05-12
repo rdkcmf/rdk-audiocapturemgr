@@ -37,8 +37,8 @@ namespace audiocapturemgr
 		size_t threshold;
 		unsigned int delay_compensation_ms;
 	}audio_properties_t;
-	void get_individual_audio_parameters(audio_properties_t &audio_props, unsigned int &sampling_rate, unsigned int &bits_per_sample, unsigned int &num_channels);
-	unsigned int calculate_data_rate(audio_properties_t &audio_props);
+	void get_individual_audio_parameters(const audio_properties_t &audio_props, unsigned int &sampling_rate, unsigned int &bits_per_sample, unsigned int &num_channels);
+	unsigned int calculate_data_rate(const audio_properties_t &audio_props);
 	std::string get_suffix(unsigned int ticker);
 }
 
@@ -111,7 +111,7 @@ class audio_capture_client
 		unsigned int get_priority() {return m_priority;}
 		void set_manager(q_mgr *manager);
 		virtual int set_audio_properties(audiocapturemgr::audio_properties_t &properties);
-		void get_audio_properties(audiocapturemgr::audio_properties_t &properties);
+		virtual void get_audio_properties(audiocapturemgr::audio_properties_t &properties);
 		void get_default_audio_properties(audiocapturemgr::audio_properties_t &properties);
 		virtual void notify_event(audio_capture_events_t event){}
 		virtual int start();
