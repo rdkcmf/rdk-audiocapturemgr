@@ -1,5 +1,7 @@
+#include <string.h>
 #include "audio_converter.h"
 
+const unsigned int TEMPORARY_BUFFER_SIZE = 100 * 1024; //100kB
 audio_converter::audio_converter(const audiocapturemgr::audio_properties_t &in_props, const audiocapturemgr::audio_properties_t &out_props) : m_in_props(in_props), m_out_props(out_props)
 {
 	process_conversion_params();
@@ -109,6 +111,9 @@ int audio_converter::downsample_and_downmix(const std::list<audio_buffer *> &que
 	unsigned int write_length = (DOWNMIX_AND_DOWNSAMPLE == m_op ? sample_size : frame_size ); //Write only first sample of a frame if we're downmixing.
 
 	int read_offset = 0;
+	
+	char * temporary_buffer = new char[TEMPORARY_BUFFER_SIZE]; //Temporary local buffer to reduce expensive file operations.
+	unsigned int temp_buffer_write_offset = 0;
 
 	for(auto &entry: queue)
 	{
@@ -121,10 +126,14 @@ int audio_converter::downsample_and_downmix(const std::list<audio_buffer *> &que
 		int buffer_size = entry->m_size;
 		while (buffer_size > 0)
 		{
-			write_data(ptr, write_length); //TODO Check for errors
+			memcpy(&temporary_buffer[temp_buffer_write_offset], ptr, write_length);
+			temp_buffer_write_offset += write_length;
+
 			buffer_size -= leap_value;
 			ptr += leap_value;
 		}
+		write_data(temporary_buffer, temp_buffer_write_offset); //TODO: check for errors
+		temp_buffer_write_offset = 0;
 
 		/*If the value of buffer_size when exiting the above loop is a negative value (it can only be zero or negative), we need to skip that many bytes
 		 * when processing the next buffer in the list. This is to maintain the continuity of 'frame-skipping' across buffer boundaries. read_offset will 
@@ -142,8 +151,10 @@ int audio_converter::downsample_and_downmix(const std::list<audio_buffer *> &que
 			break;
 		}
 	}
+	delete [] temporary_buffer;
 	return ret;
 }
+
 
 int audio_converter::downmix(const std::list<audio_buffer *> &queue, int size)
 {
@@ -153,7 +164,10 @@ int audio_converter::downmix(const std::list<audio_buffer *> &queue, int size)
 	audiocapturemgr::get_individual_audio_parameters(m_in_props, in_sampling_rate, in_bits_per_sample, in_num_channels);
 
 	unsigned int sample_size = in_bits_per_sample / 8;
-	unsigned int frame_size = in_num_channels * sample_size; 
+	unsigned int frame_size = in_num_channels * sample_size;
+
+	char * temporary_buffer = new char[TEMPORARY_BUFFER_SIZE]; //Temporary local buffer to reduce expensive file operations.
+	unsigned int temp_buffer_write_offset = 0;
 
 	for(auto &entry: queue)
 	{
@@ -166,10 +180,15 @@ int audio_converter::downmix(const std::list<audio_buffer *> &queue, int size)
 		unsigned int buffer_size = entry->m_size;
 		while (buffer_size > 0)
 		{
-			write_data(ptr, sample_size); //TODO Check for errors
+			memcpy(&temporary_buffer[temp_buffer_write_offset], ptr, sample_size);
+			temp_buffer_write_offset += sample_size;
+			
 			buffer_size -= frame_size;
 			ptr += frame_size;
 		}
+
+		write_data(temporary_buffer, temp_buffer_write_offset); //TODO: check for errors
+		temp_buffer_write_offset = 0;
 
 		size -= entry->m_size;
 		if(0 >= size)
@@ -177,6 +196,7 @@ int audio_converter::downmix(const std::list<audio_buffer *> &queue, int size)
 			break;
 		}
 	}
+	delete [] temporary_buffer;
 	return ret;
 }
 #if 0
