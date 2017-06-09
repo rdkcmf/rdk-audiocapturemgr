@@ -50,7 +50,7 @@ void launcher()
 {
 	bool keep_running = true;
     q_mgr manager;
-	music_id_client client(&manager);
+	music_id_client client(&manager, music_id_client::FILE_OUTPUT);
 	client.enable_wav_header(true);
 	
 	while(keep_running)
@@ -76,7 +76,7 @@ void launcher()
 				manager.stop();
 				break;
 			case 3:
-				filename = "/opt/precap-"+ get_suffix();
+				filename = "/tmp/precap-"+ get_suffix();
 				client.grab_precaptured_sample(filename);
 				std::cout<<"Output file "<<filename<<std::endl;
 				break;
@@ -106,8 +106,8 @@ void launcher()
 					}
 					else
 					{
-						filename = "/opt/freshcap-"+ get_suffix();
-						client.grab_fresh_sample(filename, duration);
+						filename = "/tmp/freshcap-"+ get_suffix();
+						client.grab_fresh_sample(duration, filename);
 						std::cout<<"Output file "<<filename<<std::endl;
 					}
 					break;

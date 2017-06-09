@@ -21,30 +21,43 @@
 #include <unistd.h>
 #include <stdint.h>
 
+#define SOCKET_PATH "/tmp/acm-songid"
+
 using namespace audiocapturemgr;
 const unsigned int DEFAULT_PRECAPTURE_DURATION_SEC = 6;
 
-static void * music_id_thread_launcher(void * data)
+static void connected_callback(void * data)
 {
-    music_id_client * ptr = (music_id_client *) data;
-    ptr->worker_thread();
-    return NULL;
+	music_id_client * ptr = static_cast <music_id_client *> (data);
+	ptr->send_clip_via_socket();
 }
-music_id_client::music_id_client(q_mgr * manager) : audio_capture_client(manager), m_worker_thread_alive(true), m_total_size(0), 
-	m_queue_upper_limit_bytes(0), m_request_counter(0), m_enable_wav_header_output(false), m_convert_output(false)
+
+music_id_client::music_id_client(q_mgr * manager, preferred_delivery_method_t mode) : audio_capture_client(manager), m_worker_thread_alive(true), m_total_size(0), 
+	m_queue_upper_limit_bytes(0), m_request_counter(0), m_enable_wav_header_output(false), m_convert_output(false), m_delivery_method(mode), m_sock_path(SOCKET_PATH)
 {
 	DEBUG("Creating instance.\n");
 	set_precapture_duration(DEFAULT_PRECAPTURE_DURATION_SEC);
 	m_output_properties = {racFormat_e16BitMono, racFreq_e48000, 0, 0, 0}; /*Only format and sampling rate matter for conversion*/
-	REPORT_IF_UNEQUAL(0, pthread_create(&m_thread, NULL, music_id_thread_launcher, (void *) this));
+	m_worker_thread = std::thread(&music_id_client::worker_thread, this);
+
+	if(SOCKET_OUTPUT == m_delivery_method)
+	{
+		INFO("Socket delivery selected for audio clip.\n");
+		m_sock_adaptor = new socket_adaptor();
+		m_sock_adaptor->start_listening(m_sock_path);
+		m_sock_adaptor->register_data_ready_callback(connected_callback, this);
+	}
 }
 
 music_id_client::~music_id_client()
 {
-    DEBUG("Deleting instance.\n");
-    m_worker_thread_alive = false;
-    REPORT_IF_UNEQUAL(0, pthread_join(m_thread, NULL));
-	
+	DEBUG("Deleting instance.\n");
+	m_worker_thread_alive = false;
+	if(m_worker_thread.joinable())
+	{
+		m_worker_thread.join();
+	}
+
 	/*Flush all queues.*/
 	INFO("Flushing request queue. Size is %d\n", m_requests.size());
 	std::list<request_t *>::iterator req_iter;
@@ -53,7 +66,7 @@ music_id_client::~music_id_client()
 		delete (*req_iter);
 	}
 	m_requests.clear();
-	
+
 	INFO("Flushing buffers.\n");
 	std::list<audio_buffer *>::iterator buf_iter;
 	for(buf_iter = m_queue.begin(); buf_iter != m_queue.end(); buf_iter++)
@@ -61,6 +74,17 @@ music_id_client::~music_id_client()
 		release_buffer(*buf_iter);
 	}
 	m_queue.clear();
+
+	if(SOCKET_OUTPUT == m_delivery_method)
+	{
+		delete m_sock_adaptor;
+		INFO("Outbox has %d entries. Flushing.\n", m_outbox.size());
+		for(auto & outbox_entry : m_outbox)
+		{
+			delete outbox_entry;
+		}
+		m_outbox.clear();
+	}
 }
 
 int music_id_client::data_callback(audio_buffer *buf)
@@ -131,16 +155,83 @@ void music_id_client::trim_queue() //Recommend using lock.
 	}
 }
 
-int music_id_client::grab_precaptured_sample(const std::string &filename)
+
+void music_id_client::send_clip_via_socket()
 {
-    int ret;
-    lock();
-	ret = grab_last_n_seconds(filename, m_precapture_duration_seconds);
-    unlock();
-    return ret;
+	audio_converter_memory_sink * sink_ptr = nullptr;
+	lock();
+	if(0 != m_outbox.size())
+	{
+		sink_ptr = m_outbox.front();
+		m_outbox.pop_front();
+	}
+	unlock();
+
+	if(sink_ptr)
+	{
+		INFO("Sending clip.\n");
+		m_sock_adaptor->write_data(sink_ptr->get_buffer(), sink_ptr->get_size());
+		delete sink_ptr;
+		INFO("Done sending.\n");
+	}
+	else
+	{
+		WARN("No data in outbox.\n");
+	}
+	m_sock_adaptor->terminate_current_connection();
 }
 
-int music_id_client::grab_last_n_seconds(const std::string &filename, unsigned int seconds)
+int music_id_client::grab_precaptured_sample(const std::string &filename)
+{
+	int ret;
+	lock();
+	if(SOCKET_OUTPUT == m_delivery_method)
+	{
+		ret = grab_last_n_seconds(m_precapture_duration_seconds);
+	}
+	else
+	{
+		ret = grab_last_n_seconds(filename, m_precapture_duration_seconds);
+	}
+	unlock();
+	return ret;
+}
+
+int music_id_client::grab_last_n_seconds(unsigned int seconds) //for socket mode output
+{
+	
+	int ret = 0;
+	int data_dump_size = seconds * m_manager->get_data_rate();
+
+	if(0 != m_queue.size())
+	{
+		audio_properties_t in_properties;
+		audio_capture_client::get_audio_properties(in_properties);
+		audio_converter_memory_sink *sink;
+		if(m_convert_output)
+		{
+			sink = new audio_converter_memory_sink(audiocapturemgr::calculate_data_rate(m_output_properties) * (seconds + 1)); //an extra second to account for the imprecise way in which ACM cuts clips
+			audio_converter converter(in_properties, m_output_properties, *sink);
+			converter.convert(m_queue, data_dump_size);
+		}
+		else
+		{
+			sink = new audio_converter_memory_sink(audiocapturemgr::calculate_data_rate(in_properties) * (seconds + 1));
+			audio_converter converter(in_properties, in_properties, *sink);
+			converter.convert(m_queue, data_dump_size);
+		}
+		m_outbox.push_back(sink);
+		INFO("Precaptured sample placed in outbox.\n");
+	}
+	else
+	{
+		ERROR("Error! Precaptured queue is empty.\n");
+		ret = -1;
+	}
+	return ret;
+}
+
+int music_id_client::grab_last_n_seconds(const std::string &filename, unsigned int seconds) //for file mode output
 {
 	int ret = 0;
 	int data_dump_size = seconds * m_manager->get_data_rate();
@@ -154,27 +245,21 @@ int music_id_client::grab_last_n_seconds(const std::string &filename, unsigned i
 			{
 				write_default_file_header(file);
 			}
+			
+			audio_properties_t in_properties;
+			audio_capture_client::get_audio_properties(in_properties);
+			audio_converter_file_sink sink(file);
 			if(m_convert_output)
 			{
-				audio_properties_t in_properties;
-				audio_capture_client::get_audio_properties(in_properties);
-				audio_converter_file_op converter(in_properties, m_output_properties, file);
+				audio_converter converter(in_properties, m_output_properties, sink);
 				converter.convert(m_queue, data_dump_size);
 			}
 			else
 			{
-				INFO("No conversions active.\n");
-				std::list <audio_buffer *>::iterator iter;
-				for(iter = m_queue.begin(); iter != m_queue.end(); iter++)
-				{
-					file.write((char *)(*iter)->m_start_ptr, (*iter)->m_size);
-					data_dump_size -= (*iter)->m_size;
-					if(0 > data_dump_size)
-					{
-						break;
-					}
-				}
+				audio_converter converter(in_properties, in_properties, sink);
+				converter.convert(m_queue, data_dump_size);
 			}
+			
 			if(m_enable_wav_header_output)
 			{
 				unsigned int payload_size = static_cast<unsigned int>(file.tellp()) - 44;
@@ -196,7 +281,7 @@ int music_id_client::grab_last_n_seconds(const std::string &filename, unsigned i
 	return ret;
 }
 
-music_id_client::request_id_t music_id_client::grab_fresh_sample(const std::string &filename, unsigned int seconds, request_complete_callback_t cb , void * cb_data)
+music_id_client::request_id_t music_id_client::grab_fresh_sample(unsigned int seconds, const std::string &filename, request_complete_callback_t cb , void * cb_data)
 {
 	request_id_t id = -1;
 	lock();
@@ -242,11 +327,21 @@ void music_id_client::worker_thread()
 			if(0 == request->time_remaining--)
 			{
 				INFO("Request %d is up.\n", request->id);
-				int ret = grab_last_n_seconds(request->filename, request->length);
+				
+				int ret;
+				if(SOCKET_OUTPUT == m_delivery_method)
+				{
+					ret = grab_last_n_seconds(request->length);
+				}
+				else
+				{
+					ret = grab_last_n_seconds(request->filename, request->length);
+				}
 				if(0 != ret) 
 				{
 					ERROR("Failed to fulfil request %d.\n", (*iter)->id);
 				}
+
 				if(request->callback)
 				{
 					(request->callback)(request->callback_data, request->filename, ret);

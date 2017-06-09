@@ -17,7 +17,7 @@
 # limitations under the License.
 ##########################################################################
 lib_LTLIBRARIES = libaudiocapturemgr.la
-libaudiocapturemgr_la_SOURCES = audio_buffer.cpp  audio_capture_manager.cpp  music_id.cpp ip_out.cpp audio_converter.cpp 
+libaudiocapturemgr_la_SOURCES = audio_buffer.cpp  audio_capture_manager.cpp  music_id.cpp ip_out.cpp audio_converter.cpp socket_adaptor.cpp 
 libaudiocapturemgr_la_CPPFLAGS = -std=c++0x -I$(top_srcdir)/include -I$(PKG_CONFIG_SYSROOT_DIR)${includedir}/media-utils/audioCapture/ -I$(PKG_CONFIG_SYSROOT_DIR)${includedir}/
 libaudiocapturemgr_la_LIBADD = -lrmfAudioCapture -lpthread
 

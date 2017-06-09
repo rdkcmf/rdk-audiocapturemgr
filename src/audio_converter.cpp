@@ -2,7 +2,8 @@
 #include "audio_converter.h"
 
 const unsigned int TEMPORARY_BUFFER_SIZE = 100 * 1024; //100kB
-audio_converter::audio_converter(const audiocapturemgr::audio_properties_t &in_props, const audiocapturemgr::audio_properties_t &out_props) : m_in_props(in_props), m_out_props(out_props)
+
+audio_converter::audio_converter(const audiocapturemgr::audio_properties_t &in_props, const audiocapturemgr::audio_properties_t &out_props, audio_converter_sink &sink) : m_in_props(in_props), m_out_props(out_props), m_sink(sink)
 {
 	process_conversion_params();
 }
@@ -15,6 +16,7 @@ int audio_converter::process_conversion_params()
 	bool sample_rate_ok = false;
 	bool downmix = false;
 	bool downsample = false;
+
 	m_op = UNSUPPORTED_CONVERSION;
 
 	do
@@ -112,7 +114,6 @@ int audio_converter::downsample_and_downmix(const std::list<audio_buffer *> &que
 
 	int read_offset = 0;
 	
-	char * temporary_buffer = new char[TEMPORARY_BUFFER_SIZE]; //Temporary local buffer to reduce expensive file operations.
 	unsigned int temp_buffer_write_offset = 0;
 
 	for(auto &entry: queue)
@@ -126,14 +127,10 @@ int audio_converter::downsample_and_downmix(const std::list<audio_buffer *> &que
 		int buffer_size = entry->m_size;
 		while (buffer_size > 0)
 		{
-			memcpy(&temporary_buffer[temp_buffer_write_offset], ptr, write_length);
-			temp_buffer_write_offset += write_length;
-
+			m_sink.write_data(ptr, write_length);
 			buffer_size -= leap_value;
 			ptr += leap_value;
 		}
-		write_data(temporary_buffer, temp_buffer_write_offset); //TODO: check for errors
-		temp_buffer_write_offset = 0;
 
 		/*If the value of buffer_size when exiting the above loop is a negative value (it can only be zero or negative), we need to skip that many bytes
 		 * when processing the next buffer in the list. This is to maintain the continuity of 'frame-skipping' across buffer boundaries. read_offset will 
@@ -151,7 +148,6 @@ int audio_converter::downsample_and_downmix(const std::list<audio_buffer *> &que
 			break;
 		}
 	}
-	delete [] temporary_buffer;
 	return ret;
 }
 
@@ -166,8 +162,6 @@ int audio_converter::downmix(const std::list<audio_buffer *> &queue, int size)
 	unsigned int sample_size = in_bits_per_sample / 8;
 	unsigned int frame_size = in_num_channels * sample_size;
 
-	char * temporary_buffer = new char[TEMPORARY_BUFFER_SIZE]; //Temporary local buffer to reduce expensive file operations.
-	unsigned int temp_buffer_write_offset = 0;
 
 	for(auto &entry: queue)
 	{
@@ -180,15 +174,10 @@ int audio_converter::downmix(const std::list<audio_buffer *> &queue, int size)
 		unsigned int buffer_size = entry->m_size;
 		while (buffer_size > 0)
 		{
-			memcpy(&temporary_buffer[temp_buffer_write_offset], ptr, sample_size);
-			temp_buffer_write_offset += sample_size;
-			
+			m_sink.write_data(ptr, sample_size);		
 			buffer_size -= frame_size;
 			ptr += frame_size;
 		}
-
-		write_data(temporary_buffer, temp_buffer_write_offset); //TODO: check for errors
-		temp_buffer_write_offset = 0;
 
 		size -= entry->m_size;
 		if(0 >= size)
@@ -196,7 +185,6 @@ int audio_converter::downmix(const std::list<audio_buffer *> &queue, int size)
 			break;
 		}
 	}
-	delete [] temporary_buffer;
 	return ret;
 }
 #if 0
@@ -225,7 +213,7 @@ int audio_converter::downsample(std::list<audio_buffer *> &queue, int size)
 		int buffer_size = entry->m_size;
 		while (buffer_size > 0)
 		{
-			write_data(ptr, frame_size); //TODO Check for errors
+			m_sink.write_data(ptr, frame_size); //TODO Check for errors
 			buffer_size -= leap_value;
 			ptr += leap_value;
 		}
@@ -245,7 +233,7 @@ int audio_converter::passthrough(const std::list<audio_buffer *> &queue, int siz
 	int ret = -1;
 	for(auto &entry: queue)
 	{
-		ret = write_data((char *)entry->m_start_ptr, entry->m_size);
+		ret = m_sink.write_data((char *)entry->m_start_ptr, entry->m_size);
 		if(0 > ret)
 		{
 			ERROR("Write error!\n");
@@ -290,14 +278,30 @@ int audio_converter::convert(const std::list<audio_buffer *> &queue, unsigned in
 	return ret;
 }
 
-audio_converter_file_op::audio_converter_file_op(const audiocapturemgr::audio_properties_t &in_props, const audiocapturemgr::audio_properties_t &out_props, std::ofstream &file) :
-	audio_converter(in_props, out_props), m_file(file)
-{
-}
-
-int audio_converter_file_op::write_data(const char * ptr, unsigned int size)
+int audio_converter_file_sink::write_data(const char * ptr, unsigned int size)
 {
 	int ret = 0;
 	m_file.write(ptr, size); //TODO: Add error handling
+	return ret;
+}
+
+
+audio_converter_memory_sink::audio_converter_memory_sink(unsigned int max_size) : m_write_offset(0)
+{
+	m_buffer = new char[max_size];
+	INFO("Created with size %d. ptr: 0x%x, this: 0x%x\n", max_size, m_buffer, this);
+}
+
+audio_converter_memory_sink::~audio_converter_memory_sink()
+{
+	INFO("Destroying 0x%x\n", this);
+	delete m_buffer;
+}
+
+int audio_converter_memory_sink::write_data(const char * ptr, unsigned int size)
+{
+	int ret = 0;
+	memcpy(&m_buffer[m_write_offset], ptr, size);
+	m_write_offset += size;
 	return ret;
 }

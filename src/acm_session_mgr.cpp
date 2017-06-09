@@ -218,7 +218,7 @@ int acm_session_mgr::open_handler(void * arg)
 	switch(param->details.arg_open.output_type)
 	{
 		case BUFFERED_FILE_OUTPUT:
-			new_session->client = new music_id_client(new_session->source);
+			new_session->client = new music_id_client(new_session->source, music_id_client::SOCKET_OUTPUT);
 			static_cast <music_id_client *> (new_session->client)->enable_output_conversion(get_rfc_output_conversion_config());
 			param->result = 0;
 			break;
@@ -695,7 +695,7 @@ int acm_session_mgr::get_sample_handler(void * arg)
 			{
 				int ret = 0;
 				param->result = ACM_RESULT_SUCCESS;
-				std::string filename = audio_file_path + audio_filename_prefix + get_suffix(ticker++);
+				std::string filename = client->get_sock_path();
 
 				if(param->details.arg_sample_request.is_precapture)
 				{
@@ -711,7 +711,7 @@ int acm_session_mgr::get_sample_handler(void * arg)
 					unsigned int duration = param->details.arg_sample_request.duration;	
 					if(duration <= client->get_max_supported_duration())
 					{
-						ret = client->grab_fresh_sample(filename, duration, &request_callback, NULL);
+						ret = client->grab_fresh_sample(duration, filename, &request_callback, NULL);
 					}
 					else
 					{
