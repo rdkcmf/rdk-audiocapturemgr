@@ -25,7 +25,7 @@
 
 using namespace audiocapturemgr;
 const unsigned int DEFAULT_PRECAPTURE_DURATION_SEC = 6;
-
+static unsigned int ticker = 0;
 static void connected_callback(void * data)
 {
 	music_id_client * ptr = static_cast <music_id_client *> (data);
@@ -33,7 +33,7 @@ static void connected_callback(void * data)
 }
 
 music_id_client::music_id_client(q_mgr * manager, preferred_delivery_method_t mode) : audio_capture_client(manager), m_worker_thread_alive(true), m_total_size(0), 
-	m_queue_upper_limit_bytes(0), m_request_counter(0), m_enable_wav_header_output(false), m_convert_output(false), m_delivery_method(mode), m_sock_path(SOCKET_PATH)
+	m_queue_upper_limit_bytes(0), m_request_counter(0), m_enable_wav_header_output(false), m_convert_output(false), m_delivery_method(mode), m_sock_path(SOCKET_PATH + get_suffix(ticker++))
 {
 	DEBUG("Creating instance.\n");
 	set_precapture_duration(DEFAULT_PRECAPTURE_DURATION_SEC);
