@@ -1,6 +1,6 @@
 #include <string.h>
 #include "audio_converter.h"
-
+#include <stdint.h>
 const unsigned int TEMPORARY_BUFFER_SIZE = 100 * 1024; //100kB
 
 audio_converter::audio_converter(const audiocapturemgr::audio_properties_t &in_props, const audiocapturemgr::audio_properties_t &out_props, audio_converter_sink &sink) : m_in_props(in_props), m_out_props(out_props), m_sink(sink)
@@ -161,28 +161,72 @@ int audio_converter::downmix(const std::list<audio_buffer *> &queue, int size)
 
 	unsigned int sample_size = in_bits_per_sample / 8;
 	unsigned int frame_size = in_num_channels * sample_size;
+	
+	audio_converter_memory_sink * memsink = dynamic_cast <audio_converter_memory_sink * > (&m_sink);
 
-
-	for(auto &entry: queue)
+	/* Targeted optimizations to downmix 16-bit 2 chanel audio to 1-channel. */
+	if(memsink && (16 == in_bits_per_sample) && (2 == in_num_channels))
 	{
-		char * ptr = (char *)entry->m_start_ptr;
-		if(0 != (entry->m_size % frame_size))
+		INFO("Running special optimizations for 16-bit stereo to mono conversion.\n");
+		int16_t * dptr = (int16_t *)memsink->get_buffer();
+		unsigned int write_offset = memsink->get_size();
+		for(auto &entry: queue)
 		{
-			WARN("Audio buffer not aligned with frame boundary!\n");
-		}
+			int16_t * sptr = (int16_t *)entry->m_start_ptr;
+			unsigned int data_remaining = entry->m_size;
+			while(32 <= data_remaining) 
+			{
+				dptr[0] = sptr[0];
+				dptr[1] = sptr[2];
+				dptr[2] = sptr[4];
+				dptr[3] = sptr[6];
+				dptr[4] = sptr[8];
+				dptr[5] = sptr[10];
+				dptr[6] = sptr[12];
+				dptr[7] = sptr[14];
+				dptr += 8;
+				sptr += 16;
+				data_remaining -= 16 * 2;
+				write_offset += 8 * 2;
+			}
+		
+			/* If there is any remaining data making up less than 32 bytes, process that as well*/
+			while(0 != data_remaining)
+			{
+				*dptr = *sptr;
+				dptr += 1;
+				sptr += 2;
+				data_remaining -= 2 * 2;
+				write_offset += 1 * 2;
+			}
 
-		unsigned int buffer_size = entry->m_size;
-		while (buffer_size > 0)
-		{
-			m_sink.write_data(ptr, sample_size);		
-			buffer_size -= frame_size;
-			ptr += frame_size;
 		}
-
-		size -= entry->m_size;
-		if(0 >= size)
+		memsink->m_write_offset = write_offset;
+		INFO("Final write offset is %d\n", write_offset);
+	}
+	else
+	{
+		for(auto &entry: queue)
 		{
-			break;
+			char * ptr = (char *)entry->m_start_ptr;
+			if(0 != (entry->m_size % frame_size))
+			{
+				WARN("Audio buffer not aligned with frame boundary!\n");
+			}
+
+			unsigned int buffer_size = entry->m_size;
+			while (buffer_size > 0)
+			{
+				m_sink.write_data(ptr, sample_size);		
+				buffer_size -= frame_size;
+				ptr += frame_size;
+			}
+
+			size -= entry->m_size;
+			if(0 >= size)
+			{
+				break;
+			}
 		}
 	}
 	return ret;
