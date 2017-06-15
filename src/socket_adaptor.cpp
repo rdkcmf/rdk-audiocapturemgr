@@ -155,7 +155,9 @@ int socket_adaptor::stop_listening()
 		else
 		{
 			INFO("Waiting for worker thread to join.\n");
+			unlock();
 			m_thread.join();
+			lock();
 			INFO("Worker thread has joined.\n");
 		}
 	}
