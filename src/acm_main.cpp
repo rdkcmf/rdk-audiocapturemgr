@@ -32,6 +32,7 @@ void launcher()
 
 int main(int argc, char *argv[])
 {
+	setlinebuf(stdout); //otherwise logs may take forever to get flushed to journald
 	launcher();
 	return 0;
 }
