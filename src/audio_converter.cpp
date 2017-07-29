@@ -202,7 +202,7 @@ int audio_converter::downmix(const std::list<audio_buffer *> &queue, int size)
 
 		}
 		memsink->m_write_offset = write_offset;
-		INFO("Final write offset is %d\n", write_offset);
+		INFO("Final write offset is %d. Final value of dptr: 0x%x\n", write_offset, dptr);
 	}
 	else
 	{
@@ -339,7 +339,7 @@ audio_converter_memory_sink::audio_converter_memory_sink(unsigned int max_size) 
 audio_converter_memory_sink::~audio_converter_memory_sink()
 {
 	INFO("Destroying 0x%x\n", this);
-	delete m_buffer;
+	delete [] m_buffer;
 }
 
 int audio_converter_memory_sink::write_data(const char * ptr, unsigned int size)
