@@ -23,6 +23,7 @@ Requires= iarmbusd.service nxserver.service
 
 [Service]
 Type=simple
+ExecStartPre=/bin/sh -c 'sleep 5'
 ExecStart=/usr/bin/audiocapturemgr
 Restart=on-failure
 
