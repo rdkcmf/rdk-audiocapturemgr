@@ -36,7 +36,6 @@ class ip_out_client : public audio_capture_client
 
 	private:
 	std::string m_data_path;
-	bool m_is_enabled;
 	int m_listen_fd;
 	int m_write_fd;
 	int m_control_pipe[2];
@@ -52,8 +51,6 @@ class ip_out_client : public audio_capture_client
 	virtual std::string get_data_path();
 	virtual std::string open_output();
 	virtual int close_output();
-	virtual int start();
-	virtual int stop();
 	void worker_thread();
 };
 

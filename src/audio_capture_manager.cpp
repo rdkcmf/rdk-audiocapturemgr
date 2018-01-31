@@ -388,11 +388,18 @@ int q_mgr::register_client(audio_capture_client * client)
 {
 	DEBUG("Enter.\n");
 	lock(m_client_mutex);
-	m_clients.push_back(client);
-	m_num_clients = m_clients.size();
-	if(1 == m_num_clients)
+	if(std::find(m_clients.begin(), m_clients.end(), client) == m_clients.end()) //Add only if it is not already present.
 	{
-		start();
+		m_clients.push_back(client);
+		m_num_clients = m_clients.size();
+		if(1 == m_num_clients)
+		{
+			start();
+		}
+	}
+	else
+	{
+		INFO("Will not register client as it is already present.\n");
 	}
 	unlock(m_client_mutex);
 	INFO("Total clients: %d.\n", m_num_clients);

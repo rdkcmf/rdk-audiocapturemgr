@@ -50,7 +50,7 @@ static void * ip_out_thread_launcher(void * data)
     return NULL;
 }
 
-ip_out_client::ip_out_client(q_mgr *mgr) : audio_capture_client(mgr), m_is_enabled(false), m_listen_fd(-1), m_write_fd(-1), m_num_connections(0)
+ip_out_client::ip_out_client(q_mgr *mgr) : audio_capture_client(mgr), m_listen_fd(-1), m_write_fd(-1), m_num_connections(0)
 {
 	INFO("Enter\n")
 	if(!g_one_time_init_complete)
@@ -278,31 +278,4 @@ void ip_out_client::worker_thread()
 	}
 
 	INFO("Exit\n");
-}
-
-int ip_out_client::start()
-{
-	int ret = 0;
-	lock();
-	if(!m_is_enabled)
-	{
-		m_is_enabled = true;
-		INFO("Starting data delivery.\n");
-		ret = audio_capture_client::start();
-	}
-	unlock();
-	return ret;
-}
-
-int ip_out_client::stop()
-{
-	int ret = 0;
-	lock();
-	if(m_is_enabled)
-	{
-		m_is_enabled = false;
-		ret = audio_capture_client::stop();
-	}
-	unlock();
-	return ret;
 }
