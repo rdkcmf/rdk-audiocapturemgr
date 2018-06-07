@@ -18,8 +18,8 @@
 ##########################################################################
 [Unit]
 Description=An application to extract and deliver currently playing audio to registered consumers
-After= iarmbusd.service nxserver.service
-Requires= iarmbusd.service nxserver.service
+After=iarmbusd.service
+Requires=iarmbusd.service
 
 [Service]
 Type=simple
