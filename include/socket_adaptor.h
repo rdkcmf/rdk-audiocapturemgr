@@ -23,6 +23,11 @@
 #include <thread>
 #include <mutex>
 
+/**
+ * @addtogroup AUDIO_CAPTURE_MANAGER_API
+ * @{
+ */
+
 typedef void (*socket_adaptor_cb_t)(void * data);
 
 class socket_adaptor
@@ -56,11 +61,51 @@ class socket_adaptor
 	public:
 	socket_adaptor();
 	~socket_adaptor();
+
+    /**
+     *  @brief This function makes the audiocapturemgr listen for incoming unix domain connections to the given path.
+     *
+     *  @param[in] path  binding path.
+     *
+     *  @return Returns 0 on success, appropiate error code otherwise.
+     */
 	int start_listening(const std::string &path);
+
+    /**
+     *  @brief This api returns the data path.
+     *
+     *  It is the path of unix domain server that ip-out clients must connect to in order to receive real-time audio data.
+     *
+     *  @return Returns the data path in string.
+     */
 	std::string& get_path();
+
+    /**
+     *  @brief This api invokes unix write() to write data to the socket.
+     *
+     *  @param[in] buffer Data buffer.
+     *  @param[in] size   Size of the buffer
+     *
+     *  @return Returns 0 on success, appropiate errorcode otherwise.
+     */
 	int write_data(const char * buffer, const unsigned int size);
+
+    /**
+     *  @brief This api invokes  close() to terminate the current connection.
+     */
 	void terminate_current_connection(); //handy to simulate EOS at the other end.
+
+    /**
+     *  @brief This api returns the number of active connections.
+     *
+     *  @return Returns the number of active connections.
+     */
 	unsigned int get_active_connections();
 	void register_data_ready_callback(socket_adaptor_cb_t cb, void *data);
 };
 #endif //_socket_adaptor_H_
+
+/**
+ * @}
+ */
+

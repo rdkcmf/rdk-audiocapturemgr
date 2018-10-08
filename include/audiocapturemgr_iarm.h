@@ -20,6 +20,11 @@
 #define _AUDIOCAPTUREMGR_IARM_H_
 #include "basic_types.h"
 
+/**
+ * @addtogroup AUDIO_CAPTURE_MANAGER_API
+ * @{
+ */
+
 #define IARMBUS_AUDIOCAPTUREMGR_NAME "audiocapturemgr"
 /*Original API list*/
 #define IARMBUS_AUDIOCAPTUREMGR_ENABLE "enableCapture"
@@ -75,14 +80,14 @@ namespace audiocapturemgr
 
 
     typedef enum {
-        acmFormate16BitStereo,    /* Stereo, 16 bits per sample interleaved into a 32-bit word. */
-        acmFormate24BitStereo,    /* Stereo, 24 bits per sample.  The data is aligned to 32-bits,
+        acmFormate16BitStereo,    /* !< Stereo, 16 bits per sample interleaved into a 32-bit word. */
+        acmFormate24BitStereo,    /* !< Stereo, 24 bits per sample.  The data is aligned to 32-bits,
                                                  left-justified.  Left and right channels will interleave
                                                  one sample per 32-bit word.  */
-        acmFormate16BitMonoLeft,  /* Mono, 16 bits per sample interleaved into a 32-bit word. Left channel samples only. */
-        acmFormate16BitMonoRight, /* Mono, 16 bits per sample interleaved into a 32-bit word. Right channel samples only. */
-        acmFormate16BitMono,      /* Mono, 16 bits per sample interleaved into a 32-bit word. Left and Right channels mixed. */
-        acmFormate24Bit5_1,       /* 5.1 Multichannel, 24 bits per sample.  The data is aligned to 32-bits,
+        acmFormate16BitMonoLeft,  /* !< Mono, 16 bits per sample interleaved into a 32-bit word. Left channel samples only. */
+        acmFormate16BitMonoRight, /* !< Mono, 16 bits per sample interleaved into a 32-bit word. Right channel samples only. */
+        acmFormate16BitMono,      /* !< Mono, 16 bits per sample interleaved into a 32-bit word. Left and Right channels mixed. */
+        acmFormate24Bit5_1,       /* !< 5.1 Multichannel, 24 bits per sample.  The data is aligned to 32-bits,
                                                  left-justified.  Channels will interleave
                                                  one sample per 32-bit word, ordered L,R,Ls,Rs,C,LFE.  */
         acmFormateMax
@@ -90,11 +95,11 @@ namespace audiocapturemgr
 
 
 	typedef enum {
-		acmFreqe16000,         /* 16KHz    */
-		acmFreqe24000,         /* 24kHz    */
-		acmFreqe32000,         /* 32KHz    */
-		acmFreqe44100,         /* 44.1KHz  */
-		acmFreqe48000,         /* 48KHz    */
+		acmFreqe16000,         /*!< 16KHz    */
+		acmFreqe24000,         /*!< 24kHz    */
+		acmFreqe32000,         /*!< 32KHz    */
+		acmFreqe44100,         /*!< 44.1KHz  */
+		acmFreqe48000,         /*!< 48KHz    */
 		acmFreqeMax
 	} iarmbus_acm_freq;
 
@@ -132,15 +137,15 @@ namespace audiocapturemgr
 	{
 		union
 		{
-			char file_path[MAX_OUTPUT_PATH_LEN]; //get unix domain socket name (ip out) 
-			unsigned int buffer_duration; //set precapture duration (music id)
-			unsigned int max_buffer_duration; //get max supported buffer duration (music id)
+			char file_path[MAX_OUTPUT_PATH_LEN]; //!< get unix domain socket name (ip out) 
+			unsigned int buffer_duration; //!< set precapture duration (music id)
+			unsigned int max_buffer_duration; //!< get max supported buffer duration (music id)
 		}output;
 	}iarmbus_delivery_props_t;
 
 	typedef struct
 	{
-		int source;//0 for primary, increasing by 1 for each new source.
+		int source;//!< 0 for primary, increasing by 1 for each new source.
 		iarmbus_output_type_t output_type;
 	}iarmbus_open_args;
 
@@ -163,3 +168,9 @@ namespace audiocapturemgr
 #endif
 
 #endif //_AUDIOCAPTUREMGR_IARM_H_
+
+/**
+ * @}
+ */
+
+
