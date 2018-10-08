@@ -23,6 +23,11 @@
 #include <vector>
 #include <list>
 
+/**
+ * @addtogroup AUDIO_CAPTURE_MANAGER_API
+ * @{
+ */
+
 typedef struct
 {
 	int session_id;
@@ -45,19 +50,142 @@ class acm_session_mgr
 	~acm_session_mgr();
 	static acm_session_mgr * get_instance();
 
+    /**
+     *  @brief This API initializes the message bus, registers event, RPC methods to be used
+     *  by other applications.
+     *
+     *  RPC methods like
+     *     - request audiocapture sample
+     *     - open
+     *     - close
+     *     - start
+     *     - stop
+     *     - get default audio properties
+     *     - get audio properties
+     *     - get output properties
+     *     - set audio  properties
+     *     - set output properties
+     *
+     *  @return Returns 0 on success, appropriate error code otherwise.
+     */
 	int activate();
+
+    /**
+     *  @brief This API disconnects application from the message bus, releases memory.
+     *
+     *  Also, unregisters the client from the application.
+     *
+     *  @return Returns 0 on success, appropriate error code otherwise.
+     */
 	int deactivate();
+
+    /**
+     *  @brief This API grabs the precaptured sample, if the requested data has precapture flag true.
+     *  Otherwise, capture fresh sample.
+     *
+     *  @param[in] arg  Payload data
+     *
+     *  @return Returns ACM_RESULT_GENERAL_FAILURE on failure, 0 on success.
+     *
+     */
 	int get_sample_handler(void * arg);
+
 	int generic_handler(void * arg);
+
+    /**
+     *  @brief This API creates the music id session. It's also used by bluetooth manager as an audio source. 
+     *
+     *  Accepts only one instance of music id client per source type.
+     *
+     *  @param[in] arg  Structure variable that holds the details like audio source, output types etc.
+     *
+     *  @return Returns 0 on success, appropriate error code otherwise.
+     */
 	int open_handler(void * arg);
+
+    /**
+     *  @brief This API destroys the music id session, bluetooth manager session.
+     *
+     *  @param[in] arg  Structure variable that holds the details like audio source, output types etc.
+     *
+     *  @return Returns 0 on success, appropriate error code otherwise.
+     */
 	int close_handler(void * arg);
+
+    /**
+     *  @brief This API returns default capture settings.
+     *
+     *  Settings like format, sampling frequency, FIFO size, threshold etc.
+     *
+     *  @param[in] arg Indicates the audio properties.
+     *
+     *  @return Returns 0 on success, appropriate error code otherwise.
+     */
 	int get_default_audio_props_handler(void * arg);
+
+    /**
+     *  @brief This API returns the audio properties of a current session.
+     *
+     *  @param[in] arg Indicates the audio properties.
+     *
+     *  @return Returns 0 on success, appropriate error code otherwise.
+     */
 	int get_audio_props_handler(void * arg);
+
+    /**
+     *  @brief This API returns the output  properties of a current session.
+     *
+     *  Depending on the output type socket or file output.
+     *
+     *  @param[in] arg Indicates the output  properties.
+     *
+     *  @return Returns 0 on success, appropriate error code otherwise.
+     */
 	int get_output_props_handler(void * arg);
+
+    /**
+     *  @brief This API is used to set the audio properties of a current session.
+     *
+     *  Properties like Format, Frequency, FIFO size, threshold, delay etc.
+     *
+     *  @param[in] arg Indicates the audio  properties to  set.
+     *
+     *  @return Returns 0 on success, appropriate error code otherwise.
+     */
 	int set_audio_props_handler(void * arg);
+
+    /**
+     *  @brief This API is to set precapture duration of a client device.
+     *
+     *  @param[in] arg Indicates the output type.
+     *
+     *  @return Returns 0 on success, appropriate error code otherwise.
+     */
 	int set_output_props_handler(void * arg);
+
+    /**
+     *  @brief This API starts the client session.
+     *
+     *  @param[in] arg IARM bus arguments.
+     *
+     *  @return Returns 0 on success, appropriate error code otherwise.
+     */
 	int start_handler(void * arg);
+
+    /**
+     *  @brief This API stops the current session.
+     *
+     *  @param[in] arg IARM bus arguments.
+     *
+     *  @return Returns 0 on success, appropriate error code otherwise.
+     */
 	int stop_handler(void * arg);
+
+    /**
+     *  @brief Function to add prefix to the audio filename.
+     *
+     *  @param[in] prefix Prefix to be added.
+     */
 	void set_filename_prefix(std::string &prefix);
 
 	private:
@@ -66,3 +194,9 @@ class acm_session_mgr
 	void unlock();
 	acm_session_t * get_session(int session_id);
 };
+
+/**
+ * @}
+ */
+
+
