@@ -24,6 +24,8 @@ const unsigned int TEMPORARY_BUFFER_SIZE = 100 * 1024; //100kB
 audio_converter::audio_converter(const audiocapturemgr::audio_properties_t &in_props, const audiocapturemgr::audio_properties_t &out_props, audio_converter_sink &sink) : m_in_props(in_props), m_out_props(out_props), m_sink(sink)
 {
 	process_conversion_params();
+	m_downsample = false; //CID:88634 - Intialize bool variables
+	m_downmix = false;
 }
 
 
@@ -220,7 +222,7 @@ int audio_converter::downmix(const std::list<audio_buffer *> &queue, int size)
 
 		}
 		memsink->m_write_offset = write_offset;
-		INFO("Final write offset is %d. Final value of dptr: 0x%x\n", write_offset, dptr);
+		INFO("Final write offset is %d. Final value of dptr: %p\n", write_offset, dptr); //CID:128015 - Type cast
 	}
 	else
 	{
@@ -351,12 +353,12 @@ int audio_converter_file_sink::write_data(const char * ptr, unsigned int size)
 audio_converter_memory_sink::audio_converter_memory_sink(unsigned int max_size) : m_write_offset(0)
 {
 	m_buffer = new char[max_size];
-	INFO("Created with size %d. ptr: 0x%x, this: 0x%x\n", max_size, m_buffer, this);
+	INFO("Created with size %d. ptr: %p, this: %p\n", max_size, m_buffer, this); //CID:127553 and CID:127680 - Type cast
 }
 
 audio_converter_memory_sink::~audio_converter_memory_sink()
 {
-	INFO("Destroying 0x%x\n", this);
+	INFO("Destroying %p\n", this); //CID:127449- Type cast
 	delete [] m_buffer;
 }
 

@@ -188,6 +188,7 @@ q_mgr::q_mgr() : m_total_size(0), m_num_clients(0), m_notify_new_data(false), m_
 	m_audio_properties.delay_compensation_ms = DEFAULT_DELAY_COMPENSATION; 
 	m_bytes_per_second = calculate_data_rate(m_audio_properties);
 	m_max_queue_size = (MAX_QMGR_BUFFER_DURATION_S * m_bytes_per_second) / m_audio_properties.threshold;
+	m_processing_thread_alive = true ; //CID:80565 :  Initialize bool variable
 	INFO("Max incoming queue size is now %d\n", m_max_queue_size);
 }
 q_mgr::~q_mgr()
