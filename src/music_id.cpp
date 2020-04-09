@@ -39,11 +39,11 @@ music_id_client::music_id_client(q_mgr * manager, preferred_delivery_method_t mo
 	set_precapture_duration(DEFAULT_PRECAPTURE_DURATION_SEC);
 	m_output_properties = {racFormat_e16BitMono, racFreq_e48000, 0, 0, 0}; /*Only format and sampling rate matter for conversion*/
 	m_worker_thread = std::thread(&music_id_client::worker_thread, this);
+	m_sock_adaptor = new socket_adaptor(); //CID:87243- Intialize m_sock_adaptor
 
 	if(SOCKET_OUTPUT == m_delivery_method)
 	{
 		INFO("Socket delivery selected for audio clip.\n");
-		m_sock_adaptor = new socket_adaptor();
 		m_sock_adaptor->start_listening(m_sock_path);
 		m_sock_adaptor->register_data_ready_callback(connected_callback, this);
 	}
@@ -265,7 +265,7 @@ int music_id_client::grab_last_n_seconds(const std::string &filename, unsigned i
 				unsigned int payload_size = static_cast<unsigned int>(file.tellp()) - 44;
 				update_file_header_size(file, payload_size);
 			}
-			INFO("Precaptured sample written to %s. File size: %lld bytes\n", filename.c_str(), file.tellp());
+			INFO("Precaptured sample written to %s. File size: %lld bytes\n", filename.c_str(), (long long)file.tellp());//CID:127488 - Type cast
 		}
 		else
 		{

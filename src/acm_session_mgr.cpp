@@ -545,6 +545,7 @@ int acm_session_mgr::get_output_props_handler(void * arg)
 			else
 			{
 				strncpy(param->details.arg_output_props.output.file_path, sock_path.c_str(), sizeof(param->details.arg_output_props.output.file_path));
+				param->details.arg_output_props.output.file_path[256] = '\0'; //CID:136426 - Resolve Buffer size warning
 				param->result = 0;
 			}
 		}

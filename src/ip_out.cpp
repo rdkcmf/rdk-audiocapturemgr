@@ -58,11 +58,14 @@ ip_out_client::ip_out_client(q_mgr *mgr) : audio_capture_client(mgr), m_listen_f
 		/*SIGPIPE must be ignored or process will exit when client closes connection*/
 		struct sigaction sig_settings;
 		sig_settings.sa_handler = SIG_IGN;
+		sigemptyset(&sig_settings.sa_mask); //CID:80675 Intialize the uninit
 		sigaction(SIGPIPE, &sig_settings, NULL);
 		g_one_time_init_complete = true;
 	}
 	REPORT_IF_UNEQUAL(0, pipe2(m_control_pipe, O_NONBLOCK));
 	open_output();
+	m_control_pipe[0] = 0; //CID:90206 -  Initialize m_control_pipe
+	m_control_pipe[1] = 0;
 }
 
 ip_out_client::~ip_out_client()
@@ -127,6 +130,7 @@ std::string ip_out_client::open_output()
 			struct sockaddr_un bind_path;
 			bind_path.sun_family = AF_UNIX;
 			strncpy(bind_path.sun_path, sockpath.c_str(), sizeof(bind_path.sun_path));
+			bind_path.sun_path[108] = '\0'; //CID:136459 - Resolve Buffersize warning
 
 			INFO("Binding to path %s\n", bind_path.sun_path);
 			int ret = bind(m_listen_fd, (const struct sockaddr *) &bind_path, sizeof(bind_path));
