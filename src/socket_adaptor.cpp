@@ -45,10 +45,10 @@ socket_adaptor::socket_adaptor() : m_listen_fd(-1), m_write_fd(-1), m_num_connec
 		sig_settings.sa_handler = SIG_IGN;
 		sigemptyset(&sig_settings.sa_mask); //CID:81611 - Initialize uninit
 		sigaction(SIGPIPE, &sig_settings, NULL);
+                m_callback_data = nullptr ; //CID:80575 - Intialize a nullptr
 		g_one_time_init_complete = true;
 	}
 	REPORT_IF_UNEQUAL(0, pipe2(m_control_pipe, O_NONBLOCK));
-	m_callback_data = nullptr ; //CID:80575 - Intialize a nullptr
 }
 
 socket_adaptor::~socket_adaptor()
@@ -103,8 +103,8 @@ int socket_adaptor::start_listening(const std::string &path)
 		{
 			struct sockaddr_un bind_path;
 			bind_path.sun_family = AF_UNIX;
-			strncpy(bind_path.sun_path, m_path.c_str(), sizeof(bind_path.sun_path));
-			bind_path.sun_path[108] = '\0'; //CID:136363 - Resolve Buffer size warning
+			memset(bind_path.sun_path, '\0', sizeof(bind_path.sun_path)); //CID:136363 - Resolve Buffer size warning
+			strncpy(bind_path.sun_path, m_path.c_str(), strlen(m_path.c_str()) < sizeof(bind_path.sun_path) ? strlen(m_path.c_str()) : sizeof(bind_path.sun_path) - 1);
 
 			INFO("Binding to path %s\n", bind_path.sun_path);
 			ret = bind(m_listen_fd, (const struct sockaddr *) &bind_path, sizeof(bind_path));

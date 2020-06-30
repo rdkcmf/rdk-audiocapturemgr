@@ -23,9 +23,9 @@ const unsigned int TEMPORARY_BUFFER_SIZE = 100 * 1024; //100kB
 
 audio_converter::audio_converter(const audiocapturemgr::audio_properties_t &in_props, const audiocapturemgr::audio_properties_t &out_props, audio_converter_sink &sink) : m_in_props(in_props), m_out_props(out_props), m_sink(sink)
 {
-	process_conversion_params();
 	m_downsample = false; //CID:88634 - Intialize bool variables
 	m_downmix = false;
+	process_conversion_params();
 }
 
 
