@@ -39,11 +39,11 @@ music_id_client::music_id_client(q_mgr * manager, preferred_delivery_method_t mo
 	set_precapture_duration(DEFAULT_PRECAPTURE_DURATION_SEC);
 	m_output_properties = {racFormat_e16BitMono, racFreq_e48000, 0, 0, 0}; /*Only format and sampling rate matter for conversion*/
 	m_worker_thread = std::thread(&music_id_client::worker_thread, this);
-	m_sock_adaptor = new socket_adaptor(); //CID:87243- Intialize m_sock_adaptor
 
 	if(SOCKET_OUTPUT == m_delivery_method)
 	{
 		INFO("Socket delivery selected for audio clip.\n");
+		m_sock_adaptor = new socket_adaptor();
 		m_sock_adaptor->start_listening(m_sock_path);
 		m_sock_adaptor->register_data_ready_callback(connected_callback, this);
 	}
