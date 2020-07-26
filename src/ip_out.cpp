@@ -60,8 +60,8 @@ ip_out_client::ip_out_client(q_mgr *mgr) : audio_capture_client(mgr), m_listen_f
 		sig_settings.sa_handler = SIG_IGN;
 		sigemptyset(&sig_settings.sa_mask); //CID:80675 Intialize the uninit
 		sigaction(SIGPIPE, &sig_settings, NULL);
-                m_control_pipe[PIPE_READ_FD] = 0; //CID:90206 -  Initialize m_control_pipe
-                m_control_pipe[PIPE_WRITE_FD] = 0;
+        m_control_pipe[PIPE_READ_FD] = 0; //CID:90206 -  Initialize m_control_pipe
+        m_control_pipe[PIPE_WRITE_FD] = 0;
 		g_one_time_init_complete = true;
 	}
 	REPORT_IF_UNEQUAL(0, pipe2(m_control_pipe, O_NONBLOCK));
