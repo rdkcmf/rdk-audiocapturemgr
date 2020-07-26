@@ -45,7 +45,7 @@ socket_adaptor::socket_adaptor() : m_listen_fd(-1), m_write_fd(-1), m_num_connec
 		sig_settings.sa_handler = SIG_IGN;
 		sigemptyset(&sig_settings.sa_mask); //CID:81611 - Initialize uninit
 		sigaction(SIGPIPE, &sig_settings, NULL);
-                m_callback_data = nullptr ; //CID:80575 - Intialize a nullptr
+        m_callback_data = nullptr ; //CID:80575 - Intialize a nullptr
 		g_one_time_init_complete = true;
 	}
 	REPORT_IF_UNEQUAL(0, pipe2(m_control_pipe, O_NONBLOCK));

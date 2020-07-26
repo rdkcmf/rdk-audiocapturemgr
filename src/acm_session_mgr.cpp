@@ -544,8 +544,8 @@ int acm_session_mgr::get_output_props_handler(void * arg)
 			}
 			else
 			{
-                               int i32FilePathLen = sizeof(param->details.arg_output_props.output.file_path);
-                               memset(param->details.arg_output_props.output.file_path, '\0', i32FilePathLen); //CID:136426 - Resolve Buffer size warning
+                int i32FilePathLen = sizeof(param->details.arg_output_props.output.file_path);
+                memset(param->details.arg_output_props.output.file_path, '\0', i32FilePathLen); //CID:136426 - Resolve Buffer size warning
 				strncpy(param->details.arg_output_props.output.file_path, sock_path.c_str(), strlen(sock_path.c_str()) < i32FilePathLen ? strlen(sock_path.c_str()) : i32FilePathLen - 1);
 				param->result = 0;
 			}
