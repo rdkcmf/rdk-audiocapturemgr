@@ -59,6 +59,7 @@ ip_out_client::ip_out_client(q_mgr *mgr) : audio_capture_client(mgr), m_listen_f
 		struct sigaction sig_settings;
 		sig_settings.sa_handler = SIG_IGN;
 		sigemptyset(&sig_settings.sa_mask); //CID:80675 Intialize the uninit
+		sig_settings.sa_flags = 0;  //CID:80675 Intialize the uninit
 		sigaction(SIGPIPE, &sig_settings, NULL);
         m_control_pipe[PIPE_READ_FD] = 0; //CID:90206 -  Initialize m_control_pipe
         m_control_pipe[PIPE_WRITE_FD] = 0;
@@ -98,7 +99,7 @@ int ip_out_client::data_callback(audio_buffer *buf)
 	}
 	unlock();
 	release_buffer(buf);
-	return 0;
+	return 0;  //CID:88863 ; Missing Return
 }
 
 std::string ip_out_client::get_data_path()
@@ -146,6 +147,7 @@ std::string ip_out_client::open_output()
 				perror("bind error");
 				close(m_listen_fd);
 				m_listen_fd = -1;
+				break;
 			}
 			else
 			{

@@ -43,6 +43,7 @@ socket_adaptor::socket_adaptor() : m_listen_fd(-1), m_write_fd(-1), m_num_connec
 		/*SIGPIPE must be ignored or process will exit when client closes connection*/
 		struct sigaction sig_settings;
 		sig_settings.sa_handler = SIG_IGN;
+		sig_settings.sa_flags = 0;  //CID:81611 - Initialize uninit
 		sigemptyset(&sig_settings.sa_mask); //CID:81611 - Initialize uninit
 		sigaction(SIGPIPE, &sig_settings, NULL);
         m_callback_data = nullptr ; //CID:80575 - Intialize a nullptr

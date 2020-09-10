@@ -43,6 +43,7 @@ music_id_client::music_id_client(q_mgr * manager, preferred_delivery_method_t mo
 	if(SOCKET_OUTPUT == m_delivery_method)
 	{
 		INFO("Socket delivery selected for audio clip.\n");
+		m_sock_adaptor  = nullptr;  //CID:87243 - Intialize a nullptr
 		m_sock_adaptor = new socket_adaptor();
 		m_sock_adaptor->start_listening(m_sock_path);
 		m_sock_adaptor->register_data_ready_callback(connected_callback, this);
