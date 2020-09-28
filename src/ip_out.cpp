@@ -98,6 +98,7 @@ int ip_out_client::data_callback(audio_buffer *buf)
 	}
 	unlock();
 	release_buffer(buf);
+	return 0;
 }
 
 std::string ip_out_client::get_data_path()
@@ -166,7 +167,7 @@ std::string ip_out_client::open_output()
 
 }
 
-int ip_out_client::close_output()
+void ip_out_client::close_output()
 {
 	INFO("Enter\n");
 	lock();

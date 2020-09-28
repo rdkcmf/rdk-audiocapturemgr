@@ -53,7 +53,7 @@ class socket_adaptor
 
 	void process_new_connection();
 	void process_control_message(control_code_t message);
-	int stop_listening();
+	void stop_listening();
 	void lock();
 	void unlock();
 	void worker_thread();
