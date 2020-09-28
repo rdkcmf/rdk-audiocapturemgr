@@ -141,7 +141,7 @@ int socket_adaptor::start_listening(const std::string &path)
 	return ret;
 }
 
-int socket_adaptor::stop_listening()
+void socket_adaptor::stop_listening()
 {
 	INFO("Enter\n");
 	lock();

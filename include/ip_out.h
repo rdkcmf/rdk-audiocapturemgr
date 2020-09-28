@@ -50,7 +50,7 @@ class ip_out_client : public audio_capture_client
 	virtual int data_callback(audio_buffer *buf);
 	virtual std::string get_data_path();
 	virtual std::string open_output();
-	virtual int close_output();
+	virtual void close_output();
 	void worker_thread();
 };
 

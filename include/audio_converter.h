@@ -61,7 +61,7 @@ class audio_converter
 	audio_converter(const audiocapturemgr::audio_properties_t &in_props,const audiocapturemgr::audio_properties_t &out_props, audio_converter_sink &sink);
 	virtual ~audio_converter() {}
 	virtual int convert(const std::list<audio_buffer *> &queue, unsigned int size);
-	int convert(const audio_buffer * buffer) {} //TODO
+	void convert(const audio_buffer * buffer) {} //TODO
 	int downmix(const std::list<audio_buffer *> &queue, int size); //public because of the friend declaration 
 };
 
