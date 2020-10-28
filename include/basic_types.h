@@ -27,7 +27,7 @@
 #define ERROR(text, ...) do {\
     printf("%s[%d] - %s: " text, __FUNCTION__, __LINE__, "ERROR", ##__VA_ARGS__);}while(0);
 #define WARN(text, ...) do {\
-    printf("%s[%d] - %s: " text, __FUNCTION__, __LINE__, "ERROR", ##__VA_ARGS__);}while(0);
+    printf("%s[%d] - %s: " text, __FUNCTION__, __LINE__, "WARN", ##__VA_ARGS__);}while(0);
 #define INFO(text, ...) do {\
     printf("%s[%d] - %s: " text, __FUNCTION__, __LINE__, "INFO", ##__VA_ARGS__);}while(0);
 

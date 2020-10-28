@@ -22,6 +22,9 @@
 #include <vector>
 #include <semaphore.h>
 #include <string>
+#include <thread>
+#include <condition_variable>
+#include <mutex>
 #include "audio_buffer.h"
 #include "basic_types.h"
 #include "rmf_error.h"
@@ -72,7 +75,7 @@ class q_mgr
 		std::vector <audio_capture_client *> m_clients;
 		audiocapturemgr::audio_properties_t m_audio_properties;
 		unsigned int m_bytes_per_second;
-		unsigned int m_total_size;
+		unsigned int m_inflow_byte_counter; // It's okay if this rolls over.
 		unsigned int m_num_clients;
 		pthread_mutex_t m_q_mutex;
 		pthread_mutex_t m_client_mutex;
@@ -84,6 +87,11 @@ class q_mgr
 		RMF_AudioCaptureHandle m_device_handle;
 		unsigned int m_max_queue_size;
 
+		std::thread m_data_monitor_thread;
+		std::mutex m_data_monitor_mutex;
+		std::condition_variable m_data_monitor_cv;
+		bool m_stop_data_monitor;
+
 	private:
 		inline void lock(pthread_mutex_t &mutex);
 		inline void unlock(pthread_mutex_t &mutex);
@@ -93,117 +101,118 @@ class q_mgr
 		void flush_system();
 		void process_data();
 		void update_buffer_references();
+		void data_monitor();
 
 	public:
 		q_mgr();
 		~q_mgr();
 
-        /**
-         *  @brief This API is used to set the audio properties to the client device.
-         *
-         *  Properties like format,sampling_frequency,fifo_size,threshold,delay_compensation_ms.
-         *  Checks if audio playback is started, restarted the client device after settings are applied.
-         *
-         *  @param[in]  in_properties   Structure which holds the audio properties.
-         *
-         *  @return 0 on success, appropiate errorcode otherwise.
-         */
+		/**
+		 *  @brief This API is used to set the audio properties to the client device.
+		 *
+		 *  Properties like format,sampling_frequency,fifo_size,threshold,delay_compensation_ms.
+		 *  Checks if audio playback is started, restarted the client device after settings are applied.
+		 *
+		 *  @param[in]  in_properties   Structure which holds the audio properties.
+		 *
+		 *  @return 0 on success, appropiate errorcode otherwise.
+		 */
 		int set_audio_properties(audiocapturemgr::audio_properties_t &in_properties);
 
-        /**
-         *  @brief This API returns the current audio properties of the device.
-         *
-         *  @param[out]  out_properties  Structure which holds the audio properties.
-         */
+		/**
+		 *  @brief This API returns the current audio properties of the device.
+		 *
+		 *  @param[out]  out_properties  Structure which holds the audio properties.
+		 */
 		void get_audio_properties(audiocapturemgr::audio_properties_t &out_properties);
 
-        /**
-         *  @brief This function will return default RMF_AudioCapture_Settings settings.
-         *
-         *  Once AudioCaptureStart gets called with RMF_AudioCapture_Status argument this
-         *  should still continue to return the default capture settings.
-         *
-         *  @param[out]  out_properties  Structure which holds the audio properties.
-         *
-         *  @return Device Settings error code
-         *  @retval dsERR_NONE Indicates dsGetAudioPort API was successfully called using iarmbus call.
-         *  @retval dsERR_GENERAL Indicates error due to general failure.
-         */
+		/**
+		 *  @brief This function will return default RMF_AudioCapture_Settings settings.
+		 *
+		 *  Once AudioCaptureStart gets called with RMF_AudioCapture_Status argument this
+		 *  should still continue to return the default capture settings.
+		 *
+		 *  @param[out]  out_properties  Structure which holds the audio properties.
+		 *
+		 *  @return Device Settings error code
+		 *  @retval dsERR_NONE Indicates dsGetAudioPort API was successfully called using iarmbus call.
+		 *  @retval dsERR_GENERAL Indicates error due to general failure.
+		 */
 		void get_default_audio_properties(audiocapturemgr::audio_properties_t &out_properties);
 
-        /**
-         * @brief Returns data rate in bytes per second.
-         *
-         * The data rate is a term to denote the transmission speed, or the number of bytes per second transferred.
-         * Datarate is calculated as  bits_per_sample * sampling_rate * num_channels / 8;
-         *
-         * @returns Number of bytes per second transferred.
-         */
+		/**
+		 * @brief Returns data rate in bytes per second.
+		 *
+		 * The data rate is a term to denote the transmission speed, or the number of bytes per second transferred.
+		 * Datarate is calculated as  bits_per_sample * sampling_rate * num_channels / 8;
+		 *
+		 * @returns Number of bytes per second transferred.
+		 */
 		unsigned int get_data_rate();
 
-        /**
-         * @brief This API creates new audio buffer and pushes the data to the queue.
-         *
-         * @param[in]  buf      Data to be inserted into the queue.
-         * @param[in]  size     size of the buffer.
-         *
-         */
+		/**
+		 * @brief This API creates new audio buffer and pushes the data to the queue.
+		 *
+		 * @param[in]  buf      Data to be inserted into the queue.
+		 * @param[in]  size     size of the buffer.
+		 *
+		 */
 		void add_data(unsigned char *buf, unsigned int size);
 
-        /**
-         * @brief This API processes the audio buffers available in the queue.
-         *
-         */
+		/**
+		 * @brief This API processes the audio buffers available in the queue.
+		 *
+		 */
 		void data_processor_thread();
 
-        /**
-         * @brief This API registers the client.
-         *
-         * Client is the consumer of audio data.
-         *
-         * @param[in]  client  Client info for registering.
-         *
-         * @return 0 on success, appropiate errorcode otherwise.
-         */
+		/**
+		 * @brief This API registers the client.
+		 *
+		 * Client is the consumer of audio data.
+		 *
+		 * @param[in]  client  Client info for registering.
+		 *
+		 * @return 0 on success, appropiate errorcode otherwise.
+		 */
 		int register_client(audio_capture_client *client);
 
-        /**
-         * @brief Removes the client.
-         *
-         * @param[in]  client  Client info for registering.
-         *
-         * @return 0 on success, appropiate errorcode otherwise.
-         */
+		/**
+		 * @brief Removes the client.
+		 *
+		 * @param[in]  client  Client info for registering.
+		 *
+		 * @return 0 on success, appropiate errorcode otherwise.
+		 */
 		int unregister_client(audio_capture_client *client);
 
-        /**
-         * @brief This function will start the Audio capture.
-         *
-         * If Settings is not null, reconfigure the settings with the provided capture settings and starts the audio capture .
-         * If it is NULL, start with the default capture settings.
-         *
-         * @return Returns 0 on success, appropiate error code otherwise.
-         */
+		/**
+		 * @brief This function will start the Audio capture.
+		 *
+		 * If Settings is not null, reconfigure the settings with the provided capture settings and starts the audio capture .
+		 * If it is NULL, start with the default capture settings.
+		 *
+		 * @return Returns 0 on success, appropiate error code otherwise.
+		 */
 		int start();
 
-        /**
-         *  @brief This function will stop the audio capture.
-         *
-         *  Start can be called again after a Stop, as long as Close has not been called.
-         *
-         *  @return Returns 0 on success, appropiate error code otherwise.
-         */
+		/**
+		 *  @brief This function will stop the audio capture.
+		 *
+		 *  Start can be called again after a Stop, as long as Close has not been called.
+		 *
+		 *  @return Returns 0 on success, appropiate error code otherwise.
+		 */
 		int stop();
 
-        /**
-         *  @brief This function invokes an API for adding data to the audio buffer.
-         *
-         *  @param[in]  context  data callback context
-         *  @param[in]  buf      Data to be inserted into the queue.
-         *  @param[in]  size     size of the buffer.
-         *
-         *  @return Returns RMF_SUCCESS on success, appropiate error code otherwise.
-         */
+		/**
+		 *  @brief This function invokes an API for adding data to the audio buffer.
+		 *
+		 *  @param[in]  context  data callback context
+		 *  @param[in]  buf      Data to be inserted into the queue.
+		 *  @param[in]  size     size of the buffer.
+		 *
+		 *  @return Returns RMF_SUCCESS on success, appropiate error code otherwise.
+		 */
 		static rmf_Error data_callback(void *context, void *buf, unsigned int size);
 };
 

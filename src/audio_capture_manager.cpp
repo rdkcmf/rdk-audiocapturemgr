@@ -21,6 +21,7 @@
 #include <sstream>
 #include "audio_capture_manager.h"
 #include <algorithm>
+#include <chrono>
 #include <unistd.h>
 #include "rmfAudioCapture.h"
 
@@ -162,9 +163,9 @@ namespace audiocapturemgr
 	}
 }
 
-q_mgr::q_mgr() : m_total_size(0), m_num_clients(0), m_notify_new_data(false), m_started(false), m_device_handle(NULL)
+q_mgr::q_mgr() : m_inflow_byte_counter(0), m_num_clients(0), m_notify_new_data(false), m_started(false), m_device_handle(NULL), m_stop_data_monitor(true)
 {
-	DEBUG("Creating instance.\n");
+	INFO("Creating instance 0x%x.\n", static_cast <void *>(this));
 	pthread_mutexattr_t mutex_attribute;
 	REPORT_IF_UNEQUAL(0, pthread_mutexattr_init(&mutex_attribute));
 	REPORT_IF_UNEQUAL(0, pthread_mutexattr_settype(&mutex_attribute, PTHREAD_MUTEX_ERRORCHECK));
@@ -193,7 +194,7 @@ q_mgr::q_mgr() : m_total_size(0), m_num_clients(0), m_notify_new_data(false), m_
 }
 q_mgr::~q_mgr()
 {
-	DEBUG("Deleting instance.\n");
+	INFO("Deleting instance 0x%x.\n", static_cast <void *>(this));
 	if(true == m_started)
 	{
 		stop();
@@ -300,6 +301,7 @@ void q_mgr::add_data(unsigned char *buf, unsigned int size)
 	//TODO: guard against accumulating audio_buffers if there is no consumption.
 	notify_data_ready();
 	unlock(m_q_mutex);
+	m_inflow_byte_counter += size;
 }
 void q_mgr::data_processor_thread()
 {
@@ -442,6 +444,40 @@ static void log_settings(RMF_AudioCapture_Settings &settings)
 		settings.format, settings.samplingFreq, settings.fifoSize, settings.threshold, settings.delayCompensation_ms);
 }
 
+void q_mgr::data_monitor()
+{
+	INFO("data_monitor thread has launched.\n");
+	unsigned int saved_byte_counter = 0;
+	bool is_stalled = false;
+	std::unique_lock<std::mutex> wlock(m_data_monitor_mutex);
+	while(false == m_stop_data_monitor)
+	{
+		auto ret = m_data_monitor_cv.wait_for(wlock, std::chrono::seconds(5), [this](){return m_stop_data_monitor;});
+		if(false == ret)
+		{ //This indicates a timeout or spurious wake.
+			if(saved_byte_counter == m_inflow_byte_counter)
+			{
+				if(false == is_stalled)
+				{
+					WARN("Data inflow has stalled at %u bytes for instance 0x%x.\n", saved_byte_counter, static_cast <void *>(this));
+					is_stalled = true;
+				}
+				else
+					continue; //already logged the stall once. 
+			}
+			else
+			{
+				saved_byte_counter = m_inflow_byte_counter;
+				if(true == is_stalled)
+				{
+					INFO("Data inflow has resumed for instance 0x%x.\n", static_cast <void *>(this));
+					is_stalled = false;
+				}
+			}
+		}
+	}
+	INFO("data_monitor thread exiting.\n");
+}
 
 int q_mgr::start()
 {
@@ -451,6 +487,7 @@ int q_mgr::start()
 		return 0;
 	}
 	
+	m_inflow_byte_counter = 0;
 	RMF_AudioCapture_Settings settings;
 	memset (&settings, 0, sizeof(RMF_AudioCapture_Settings));
 	RMF_AudioCapture_GetDefaultSettings(&settings);
@@ -468,6 +505,10 @@ int q_mgr::start()
 	int ret = RMF_AudioCapture_Start(m_device_handle, &settings);
 	INFO("start() result is 0x%x\n", ret);
 	m_started = true;
+
+	std::unique_lock<std::mutex> wlock(m_data_monitor_mutex);
+	m_stop_data_monitor = false;
+	m_data_monitor_thread = std::thread(&q_mgr::data_monitor, this);
 	return ret;
 }
 
@@ -478,6 +519,14 @@ int q_mgr::stop()
 		WARN("Looks like device is already stopped.\n");
 		return 0;
 	}
+	
+	{
+		std::unique_lock<std::mutex> wlock(m_data_monitor_mutex);
+		m_stop_data_monitor = true;
+	}
+	m_data_monitor_cv.notify_all();
+	m_data_monitor_thread.join();
+
 	int ret = RMF_AudioCapture_Stop(m_device_handle);
 	INFO("stop() result is 0x%x\n", ret);
 	m_started = false;
