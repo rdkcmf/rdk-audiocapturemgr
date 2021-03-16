@@ -24,7 +24,7 @@
 #include <stdlib.h>
 #include "libIARM.h"
 #include "libIBus.h"
-
+#include "safec_lib.h"
 
 using namespace audiocapturemgr;
 
@@ -37,6 +37,7 @@ std::string audio_file_path = AUDIOCAPTUREMGR_FILE_PATH;
 
 static void request_callback(void * data, std::string &file, int result)
 {
+	errno_t rc = -1;
 	if(0 != result)
 	{
 		ERROR("Failed to grab sample.\n");
@@ -44,16 +45,15 @@ static void request_callback(void * data, std::string &file, int result)
 	else
 	{
 		iarmbus_notification_payload_t payload;
-		if(file.size() < sizeof(payload.dataLocator))
+		rc = strcpy_s(payload.dataLocator, sizeof(payload.dataLocator), file.c_str());
+		if(rc == EOK)
 		{
-			memcpy(payload.dataLocator, file.c_str(), file.size());
-			payload.dataLocator[file.size()] = '\0';
-			int ret = IARM_Bus_BroadcastEvent(IARMBUS_AUDIOCAPTUREMGR_NAME, DATA_CAPTURE_IARM_EVENT_AUDIO_CLIP_READY, 
-				&payload, sizeof(payload));
+			int ret = IARM_Bus_BroadcastEvent(IARMBUS_AUDIOCAPTUREMGR_NAME, DATA_CAPTURE_IARM_EVENT_AUDIO_CLIP_READY, &payload, sizeof(payload));
 			REPORT_IF_UNEQUAL(IARM_RESULT_SUCCESS, ret);
 		}
 		else
 		{
+			ERR_CHK(rc);
 			WARN("Incoming filename is too big for payload buffer.\n");
 		}
 	}
@@ -529,6 +529,7 @@ int acm_session_mgr::get_audio_props_handler(void * arg)
 }
 int acm_session_mgr::get_output_props_handler(void * arg)
 {
+	errno_t rc = -1;
 	iarmbus_acm_arg_t *param = static_cast <iarmbus_acm_arg_t *> (arg);
 	INFO("session_id 0x%x\n", param->session_id);
 	acm_session_t * ptr = get_session(param->session_id);
@@ -544,9 +545,12 @@ int acm_session_mgr::get_output_props_handler(void * arg)
 			}
 			else
 			{
-                int i32FilePathLen = sizeof(param->details.arg_output_props.output.file_path);
-                memset(param->details.arg_output_props.output.file_path, '\0', i32FilePathLen); //CID:136426 - Resolve Buffer size warning
-				strncpy(param->details.arg_output_props.output.file_path, sock_path.c_str(), strlen(sock_path.c_str()) < i32FilePathLen ? strlen(sock_path.c_str()) : i32FilePathLen - 1);
+				int i32FilePathLen = sizeof(param->details.arg_output_props.output.file_path);
+				rc = strcpy_s(param->details.arg_output_props.output.file_path, i32FilePathLen, sock_path.c_str());
+				if(rc != EOK)
+				{
+					ERR_CHK(rc);
+				}
 				param->result = 0;
 			}
 		}

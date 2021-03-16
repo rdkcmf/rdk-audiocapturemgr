@@ -24,6 +24,7 @@
 #include <sys/un.h>
 #include <stdio.h>
 #include <errno.h>
+#include "safec_lib.h"
 
 #define _GNU_SOURCE
 #include <fcntl.h>
@@ -93,7 +94,7 @@ int socket_adaptor::start_listening(const std::string &path)
 {
 	int ret = 0;
 	m_path = path;
-	
+	errno_t rc = -1;
 	/*Open new UNIX socket to transfer data*/
 	m_listen_fd = socket(AF_UNIX, SOCK_STREAM | SOCK_NONBLOCK, 0); //TODO: Does it really need to be non-blocking?
 	if(0 < m_listen_fd)
@@ -104,9 +105,11 @@ int socket_adaptor::start_listening(const std::string &path)
 		{
 			struct sockaddr_un bind_path;
 			bind_path.sun_family = AF_UNIX;
-			memset(bind_path.sun_path, '\0', sizeof(bind_path.sun_path)); //CID:136363 - Resolve Buffer size warning
-			strncpy(bind_path.sun_path, m_path.c_str(), strlen(m_path.c_str()) < sizeof(bind_path.sun_path) ? strlen(m_path.c_str()) : sizeof(bind_path.sun_path) - 1);
-
+			rc = strcpy_s(bind_path.sun_path, sizeof(bind_path.sun_path), m_path.c_str());
+			if(rc != EOK)
+			{
+				ERR_CHK(rc);
+			}
 			INFO("Binding to path %s\n", bind_path.sun_path);
 			ret = bind(m_listen_fd, (const struct sockaddr *) &bind_path, sizeof(bind_path));
 			if(-1 == ret)

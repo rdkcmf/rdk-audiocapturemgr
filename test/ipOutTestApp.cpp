@@ -27,7 +27,7 @@
 #include <sys/un.h>
 #include <errno.h>
 #include <unistd.h>
-
+#include "safec_lib.h"
 
 using namespace audiocapturemgr;
 static const char * instance_name = NULL;
@@ -304,11 +304,15 @@ int main(int argc, char *argv[])
 		std::cout<<"For instance, $acm_ipout_testapp alpha\n";
 		return -1;
 	}
-
+	errno_t rc = -1;
 	instance_name = argv[1];
 	char bus_registration_name[100];
-	strcpy(bus_registration_name, ACM_TESTAPP_NAME_PRFIX);
-	strcpy(&bus_registration_name[strlen(ACM_TESTAPP_NAME_PRFIX)], argv[1]);
+	rc = sprintf_s(bus_registration_name, sizeof(bus_registration_name), "%s%s", ACM_TESTAPP_NAME_PRFIX, argv[1]);
+	if( rc < EOK )
+	{
+		ERR_CHK(rc);
+		return -1;
+	}
 
     if(0 != IARM_Bus_Init(bus_registration_name))
 	{

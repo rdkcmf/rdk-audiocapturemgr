@@ -27,6 +27,7 @@
 #define _GNU_SOURCE
 #include <fcntl.h>
 #include <unistd.h>
+#include "safec_lib.h"
 
 using namespace audiocapturemgr;
 std::string SOCKNAME_PREFIX = "/tmp/acm_ip_out_";
@@ -124,6 +125,7 @@ std::string ip_out_client::open_output()
 		DEBUG("Socket created.\n");
 
 		unsigned int num_retries = 6;
+		errno_t rc = -1;
 		while(num_retries)
 		{
 			num_retries--;
@@ -131,8 +133,11 @@ std::string ip_out_client::open_output()
 
 			struct sockaddr_un bind_path;
 			bind_path.sun_family = AF_UNIX;
-			memset(bind_path.sun_path, '\0', sizeof(bind_path.sun_path)); //CID:136459 - Resolve Buffersize warning
-			strncpy(bind_path.sun_path, sockpath.c_str(), strlen(sockpath.c_str()) < sizeof(bind_path.sun_path) ? strlen(sockpath.c_str()) : sizeof(bind_path.sun_path) - 1);
+			rc = strcpy_s(bind_path.sun_path, sizeof(bind_path.sun_path), sockpath.c_str());
+			if(rc != EOK)
+			{
+				ERR_CHK(rc);
+			}
 
 			INFO("Binding to path %s\n", bind_path.sun_path);
 			int ret = bind(m_listen_fd, (const struct sockaddr *) &bind_path, sizeof(bind_path));

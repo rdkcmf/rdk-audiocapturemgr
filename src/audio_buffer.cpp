@@ -21,12 +21,18 @@
 #include <stdlib.h>
 #include "basic_types.h"
 #include <pthread.h>
+#include "safec_lib.h"
 
 audio_buffer::audio_buffer(const unsigned char *in_ptr, unsigned int in_size, unsigned int clip_length, unsigned int refcount) : m_size(in_size), m_clip_length(clip_length), m_refcount(refcount)
 {
 	DEBUG("Creating new buffer.\n");
+	errno_t rc = -1;
 	m_start_ptr = (unsigned char *)malloc(in_size);
-	memcpy(m_start_ptr, in_ptr, m_size);
+	rc = memcpy_s(m_start_ptr, in_size, in_ptr, m_size);
+	if(rc != EOK)
+	{
+		ERR_CHK(rc);
+	}
 }
 
 audio_buffer::~audio_buffer()
