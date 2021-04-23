@@ -452,6 +452,7 @@ int q_mgr::start()
 	}
 	
 	RMF_AudioCapture_Settings settings;
+	memset (&settings, 0, sizeof(RMF_AudioCapture_Settings));
 	RMF_AudioCapture_GetDefaultSettings(&settings);
 	
 	settings.cbBufferReady = &q_mgr::data_callback;
