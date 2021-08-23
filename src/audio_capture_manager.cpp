@@ -165,7 +165,7 @@ namespace audiocapturemgr
 
 q_mgr::q_mgr() : m_inflow_byte_counter(0), m_num_clients(0), m_notify_new_data(false), m_started(false), m_device_handle(NULL), m_stop_data_monitor(true)
 {
-	INFO("Creating instance 0x%x.\n", static_cast <void *>(this));
+	INFO("Creating instance 0x%p.\n", static_cast <void *>(this));
 	pthread_mutexattr_t mutex_attribute;
 	REPORT_IF_UNEQUAL(0, pthread_mutexattr_init(&mutex_attribute));
 	REPORT_IF_UNEQUAL(0, pthread_mutexattr_settype(&mutex_attribute, PTHREAD_MUTEX_ERRORCHECK));
@@ -194,7 +194,7 @@ q_mgr::q_mgr() : m_inflow_byte_counter(0), m_num_clients(0), m_notify_new_data(f
 }
 q_mgr::~q_mgr()
 {
-	INFO("Deleting instance 0x%x.\n", static_cast <void *>(this));
+	INFO("Deleting instance 0x%p.\n", static_cast <void *>(this));
 	if(true == m_started)
 	{
 		stop();
@@ -459,7 +459,7 @@ void q_mgr::data_monitor()
 			{
 				if(false == is_stalled)
 				{
-					WARN("Data inflow has stalled at %u bytes for instance 0x%x.\n", saved_byte_counter, static_cast <void *>(this));
+					WARN("Data inflow has stalled at %u bytes for instance 0x%p.\n", saved_byte_counter, static_cast <void *>(this));
 					is_stalled = true;
 				}
 				else
@@ -470,7 +470,7 @@ void q_mgr::data_monitor()
 				saved_byte_counter = m_inflow_byte_counter;
 				if(true == is_stalled)
 				{
-					INFO("Data inflow has resumed for instance 0x%x.\n", static_cast <void *>(this));
+					INFO("Data inflow has resumed for instance 0x%p.\n", static_cast <void *>(this));
 					is_stalled = false;
 				}
 			}

@@ -120,55 +120,53 @@ std::string ip_out_client::open_output()
 
 	/*Open new UNIX socket to transfer data*/
 	m_listen_fd = socket(AF_UNIX, SOCK_STREAM | SOCK_NONBLOCK, 0); //TODO: Does it really need to be non-blocking?
-	if(0 < m_listen_fd)
+	if (m_listen_fd < 0) {
+		ERROR("Could not open socket.\n");
+		unlock();
+		return m_data_path;
+	}
+	DEBUG("Socket created.\n");
+
+	unsigned int num_retries = 6;
+	errno_t rc = -1;
+	while(num_retries)
 	{
-		DEBUG("Socket created.\n");
+		num_retries--;
+		std::string sockpath = SOCKNAME_PREFIX + get_suffix(ticker++);
 
-		unsigned int num_retries = 6;
-		errno_t rc = -1;
-		while(num_retries)
+		struct sockaddr_un bind_path;
+		bind_path.sun_family = AF_UNIX;
+		rc = strcpy_s(bind_path.sun_path, sizeof(bind_path.sun_path), sockpath.c_str());
+		if(rc != EOK)
 		{
-			num_retries--;
-			std::string sockpath = SOCKNAME_PREFIX + get_suffix(ticker++);
-
-			struct sockaddr_un bind_path;
-			bind_path.sun_family = AF_UNIX;
-			rc = strcpy_s(bind_path.sun_path, sizeof(bind_path.sun_path), sockpath.c_str());
-			if(rc != EOK)
-			{
-				ERR_CHK(rc);
-			}
-
-			INFO("Binding to path %s\n", bind_path.sun_path);
-			int ret = bind(m_listen_fd, (const struct sockaddr *) &bind_path, sizeof(bind_path));
-			if(-1 == ret)
-			{
-				if(EADDRINUSE == errno)
-				{
-					WARN("Retrying as the path is already in use.\n");
-					continue;
-				}
-				ERROR("Failed to bind to path. Error is %d\n", errno);
-				perror("bind error");
-				close(m_listen_fd);
-				m_listen_fd = -1;
-				break;
-			}
-			else
-			{
-				INFO("Bound successfully to path.\n");
-				m_data_path = sockpath;
-				REPORT_IF_UNEQUAL(0, listen(m_listen_fd, 3));
-				REPORT_IF_UNEQUAL(0, pthread_create(&m_thread, NULL, ip_out_thread_launcher, (void *) this));
-				break;
-			}
+			ERR_CHK(rc);
 		}
 
+		INFO("Binding to path %s\n", bind_path.sun_path);
+		int ret = bind(m_listen_fd, (const struct sockaddr *) &bind_path, sizeof(bind_path));
+		if(-1 == ret)
+		{
+			if(EADDRINUSE == errno)
+			{
+				WARN("Retrying as the path is already in use.\n");
+				continue;
+			}
+			ERROR("Failed to bind to path. Error is %d\n", errno);
+			perror("bind error");
+			close(m_listen_fd);
+			m_listen_fd = -1;
+			break;
+		}
+		else
+		{
+			INFO("Bound successfully to path.\n");
+			m_data_path = sockpath;
+			REPORT_IF_UNEQUAL(0, listen(m_listen_fd, 3));
+			REPORT_IF_UNEQUAL(0, pthread_create(&m_thread, NULL, ip_out_thread_launcher, (void *) this));
+			break;
+		}
 	}
-	else
-	{
-		ERROR("Could not open socket.\n");
-	}
+
 	unlock();
 	return m_data_path;
 
