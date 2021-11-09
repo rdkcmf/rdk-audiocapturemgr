@@ -20,6 +20,38 @@
 #include "audio_capture_manager.h"
 #include "music_id.h"
 #include "acm_session_mgr.h"
+#if defined(DROP_ROOT_PRIV)
+#include "cap.h"
+#endif
+
+#if defined(DROP_ROOT_PRIV)
+static bool drop_root()
+{
+    bool ret = false,retval = false;
+    cap_user appcaps = {{0, 0, 0, '\0', 0, 0, 0, '\0'}};
+    ret = isBlacklisted();
+    if(ret)
+    {
+         INFO("NonRoot feature is disabled\n");
+    }
+    else
+    {
+         INFO("NonRoot feature is enabled\n");
+         appcaps.caps = NULL;
+         appcaps.user_name = NULL;
+         if(init_capability() != NULL) {
+            if(drop_root_caps(&appcaps) != -1) {
+               if(update_process_caps(&appcaps) != -1) {
+                   read_capability(&appcaps);
+                   retval = true;
+               }
+            }
+         }
+    }
+    return retval;
+}
+#endif
+
 void launcher()
 {
 	acm_session_mgr *mgr = acm_session_mgr::get_instance();
@@ -33,6 +65,12 @@ void launcher()
 int main(int argc, char *argv[])
 {
 	setlinebuf(stdout); //otherwise logs may take forever to get flushed to journald
+#if defined(DROP_ROOT_PRIV)
+        if(!drop_root())
+        {
+           ERROR("drop_root function failed!\n");
+        }
+#endif
 	launcher();
 	return 0;
 }
